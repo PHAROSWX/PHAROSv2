@@ -1,0 +1,17 @@
+# Secret keys
+firebase_key.json
+/tmp/
+
+# Generated forecast data — stored in GitHub Releases, not git
+docs/forecast_data.json
+docs/meta.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# OS
+.DS_Store
+Thumbs.db
