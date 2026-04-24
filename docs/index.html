@@ -24,7 +24,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
 .chip{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:600;padding:2px 6px;border-radius:3px;border:1px solid;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
 .chip-b{color:#1565c0;border-color:#90caf9;background:rgba(21,101,192,.08);}
 .chip-g{color:#2e7d32;border-color:#a5d6a7;background:rgba(46,125,50,.08);}
-.mbtn{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:600;padding:3px 7px;border-radius:3px;border:1px solid var(--b2);background:var(--surf2);color:var(--mu2);cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:all .14s;white-space:nowrap;}
+.mbtn{font-family:'JetBrains Mono',monospace;font-size:8px;font-weit:600;padding:3px 7px;border-radius:3px;border:1px solid var(--b2);background:var(--surf2);color:var(--mu2);cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:all .14s;white-space:nowrap;}
 .mbtn:hover:not(:disabled){border-color:var(--ac2);color:var(--ac);}
 .mbtn.on{background:var(--ac2);border-color:var(--ac);color:#fff;}
 .mbtn:disabled{opacity:.35;cursor:default;}
@@ -1531,8 +1531,8 @@ function setHazardUI(h){
 // These point to the rolling "latest" release in your repo.
 // Replace OWNER and REPO with your GitHub username and repo name.
 // Example: const GH_OWNER = 'weatherdev'; const GH_REPO = 'pharos-forecast';
-const GH_OWNER = 'REPLACE_WITH_YOUR_USERNAME';
-const GH_REPO  = 'REPLACE_WITH_YOUR_REPO_NAME';
+const GH_OWNER = 'PHAROSWX';
+const GH_REPO  = 'PHAROSv2';
 const GH_BASE  = `https://github.com/${GH_OWNER}/${GH_REPO}/releases/download/latest`;
 
 async function loadStaticForecast(){
