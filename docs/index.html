@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EU Convective Outlook — Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{
+  --bg:#f0f2f5;--surf:#ffffff;--surf2:#f5f7fa;--surf3:#edf0f4;
+  --b1:#d1d9e6;--b2:#b0bbcc;--b3:#8a9ab0;
+  --tx:#1a2535;--mu:#7a8fa6;--mu2:#4a6080;
+  --ac:#1565c0;--ac2:#1976d2;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;}
+#hdr{height:46px;background:var(--surf);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 12px;gap:7px;flex-shrink:0;z-index:900;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.logo{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--ac);letter-spacing:.4px;white-space:nowrap;}
+.sep{width:1px;height:20px;background:var(--b1);margin:0 2px;flex-shrink:0;}
+.chip{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:600;padding:2px 6px;border-radius:3px;border:1px solid;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+.chip-b{color:#1565c0;border-color:#90caf9;background:rgba(21,101,192,.08);}
+.chip-g{color:#2e7d32;border-color:#a5d6a7;background:rgba(46,125,50,.08);}
+.mbtn{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:600;padding:3px 7px;border-radius:3px;border:1px solid var(--b2);background:var(--surf2);color:var(--mu2);cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:all .14s;white-space:nowrap;}
+.mbtn:hover:not(:disabled){border-color:var(--ac2);color:var(--ac);}
+.mbtn.on{background:var(--ac2);border-color:var(--ac);color:#fff;}
+.mbtn:disabled{opacity:.35;cursor:default;}
+.hbtn{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;padding:3px 8px;border-radius:3px;border:1px solid var(--b2);background:var(--surf2);color:var(--mu2);cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .14s;white-space:nowrap;}
+.hbtn:hover{border-color:var(--ac2);color:var(--ac);}
+.hbtn.on{color:#fff;}
+.hbtn.tstm.on{background:#2e7d32;border-color:#1b5e20;}
+.hbtn.hail.on{background:#1565c0;border-color:#0d47a1;}
+.hbtn.wind.on{background:#e65100;border-color:#bf360c;}
+.hbtn.tornado.on{background:#b71c1c;border-color:#7f0000;}
+#hdr-r{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--mu2);}
+.dot{width:5px;height:5px;border-radius:50%;background:#bbb;flex-shrink:0;}
+.dot.live{background:#43a047;box-shadow:0 0 5px #43a047;animation:pulse 2s infinite;}
+.dot.load{background:#fb8c00;box-shadow:0 0 5px #fb8c00;animation:pulse .65s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+#mwrap{flex:1;position:relative;overflow:hidden;}
+#map{width:100%;height:100%;}
+.leaflet-container{background:#e8ecf0 !important;}
+.leaflet-control-zoom a{background:var(--surf) !important;color:var(--tx) !important;border-color:var(--b1) !important;}
+.leaflet-control-attribution{background:rgba(255,255,255,.85) !important;color:var(--mu) !important;font-size:8px !important;}
+#leg{position:absolute;bottom:108px;left:10px;background:rgba(255,255,255,.97);border:1px solid var(--b1);border-radius:5px;padding:9px 12px;z-index:800;backdrop-filter:blur(12px);min-width:155px;box-shadow:0 2px 8px rgba(0,0,0,.10);}
+.lhd{font-family:'JetBrains Mono',monospace;font-size:7.5px;color:var(--mu);text-transform:uppercase;letter-spacing:1.4px;margin-bottom:8px;}
+.lrow{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
+.lsw{width:18px;height:9px;border-radius:2px;flex-shrink:0;border:1px solid rgba(0,0,0,.18);}
+.lnm{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;min-width:28px;color:var(--tx);}
+.lds{font-size:8.5px;color:var(--mu2);}
+#info{position:absolute;top:10px;right:10px;width:240px;background:rgba(255,255,255,.98);border:1px solid var(--b1);border-radius:6px;padding:12px;z-index:820;display:none;box-shadow:0 2px 12px rgba(0,0,0,.12);}
+.ihead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.irisk{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;line-height:1;}
+.icls{background:none;border:none;color:var(--mu);font-size:13px;cursor:pointer;padding:1px 3px;line-height:1;}
+.icls:hover{color:var(--tx);}
+.isub{font-size:9.5px;color:var(--mu2);margin-bottom:1px;}
+.icrd{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--mu);margin-bottom:9px;}
+.sec{font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;margin:7px 0 4px;border-top:1px solid var(--b1);padding-top:6px;}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;}
+.pc{background:var(--surf2);border:1px solid var(--b1);border-radius:3px;padding:4px 6px;}
+.plb{font-family:'JetBrains Mono',monospace;font-size:6.5px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:1px;}
+.pv{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--tx);}
+.pu{font-size:7px;color:var(--mu2);font-weight:400;}
+.mbars{border-top:1px solid var(--b1);padding-top:7px;margin-top:4px;}
+.mrow2{display:flex;align-items:center;gap:5px;margin-bottom:3px;font-family:'JetBrains Mono',monospace;font-size:8px;}
+.mn{color:var(--mu);min-width:36px;}
+.mbar{flex:1;height:4px;background:var(--surf3);border-radius:2px;overflow:hidden;}
+.mfill{height:100%;border-radius:2px;transition:width .3s;}
+.mlv{color:var(--tx);font-weight:700;min-width:26px;text-align:right;}
+#ldr{position:absolute;inset:0;background:rgba(240,242,245,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;gap:12px;backdrop-filter:blur(6px);}
+.ring{width:44px;height:44px;border:2px solid var(--b1);border-top-color:var(--ac);border-radius:50%;animation:spin .75s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lpct{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:var(--ac);}
+.lmsg{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;text-align:center;max-width:320px;}
+.lerr{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#c62828;text-align:center;max-width:360px;line-height:1.6;white-space:pre-wrap;}
+#ctrl{height:70px;background:var(--surf);border-top:1px solid var(--b1);flex-shrink:0;padding:7px 12px 5px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 -1px 4px rgba(0,0,0,.06);}
+#ctop{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:5px;}
+#tme{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:var(--tx);}
+#tsub{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--mu);margin-top:1px;}
+#cnote{font-family:'JetBrains Mono',monospace;font-size:7.5px;color:var(--mu);text-align:right;line-height:1.5;}
+#crow{display:flex;align-items:center;gap:7px;}
+.cbtn{background:var(--surf2);border:1px solid var(--b1);color:var(--tx);height:26px;padding:0 9px;border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;display:flex;align-items:center;flex-shrink:0;transition:border-color .12s;}
+.cbtn:hover{border-color:var(--b2);}
+.cbtn:disabled{opacity:.4;cursor:default;}
+#pbtn{width:26px;padding:0;justify-content:center;border-radius:50%;background:var(--ac2);border-color:var(--ac);color:#fff;}
+#trk{flex:1;position:relative;height:26px;display:flex;align-items:center;}
+#fill{position:absolute;left:0;top:50%;transform:translateY(-50%);height:2px;background:var(--ac);border-radius:1px;pointer-events:none;}
+#slider{width:100%;-webkit-appearance:none;height:2px;background:var(--b1);border-radius:1px;outline:none;cursor:pointer;}
+#slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:var(--ac);border-radius:50%;cursor:pointer;box-shadow:0 0 0 2px rgba(21,101,192,.3);}
+#slider::-moz-range-thumb{width:12px;height:12px;background:var(--ac);border-radius:50%;border:none;}
+.hlbl{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--mu);min-width:44px;text-align:right;flex-shrink:0;}
+#ticks{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--mu);margin-top:2px;padding:0 98px 0 37px;}
+.dbtn{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;padding:3px 7px;border-radius:3px;border:1px solid var(--b2);background:var(--surf2);color:var(--mu2);cursor:pointer;letter-spacing:.4px;transition:all .14s;white-space:nowrap;}
+.dbtn:hover{border-color:var(--ac2);color:var(--ac);}
+.dbtn.on{background:var(--ac2);border-color:var(--ac);color:#fff;}
+#blitz-btn{font-family:'JetBrains Mono',monospace;font-size:8px;padding:3px 7px;border-radius:3px;border:1px solid var(--b2);background:var(--surf2);color:#e65100;cursor:pointer;letter-spacing:.4px;transition:all .14s;}
+#blitz-btn.on{background:rgba(230,81,0,.12);border-color:#e65100;}
+#blitz-btn:hover{border-color:#bf360c;}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div class="logo">⚡ EU CONVECTIVE OUTLOOK</div>
+  <div class="sep"></div>
+  <!-- Model source buttons — blend or individual model -->
+  <span class="chip chip-g" id="chip-icon"   style="display:none">ICON-EU</span>
+  <span class="chip" id="chip-ecmwf" style="display:none;color:#7b1fa2;border-color:#ba68c8;background:rgba(123,31,162,.08)">ECMWF</span>
+  <span class="chip" id="chip-gfs"        style="display:none;color:#1565c0;border-color:#42a5f5;background:rgba(21,101,192,.08)">GFS</span>
+  <span class="chip" id="chip-cmc"      style="display:none;color:#1a237e;border-color:#7986cb;background:rgba(26,35,126,.08)">CMC</span>
+  <span class="chip" id="chip-arpege"   style="display:none;color:#4a148c;border-color:#ce93d8;background:rgba(74,20,140,.08)">ARPEGE</span>
+  <span class="chip" id="chip-arome"    style="display:none;color:#bf360c;border-color:#ff8a65;background:rgba(191,54,12,.08)">AROME</span>
+  <div class="sep"></div>
+  <button class="mbtn on" id="b-blend">BLEND</button>
+  <button class="mbtn" id="b-icon"     disabled>ICON-EU</button>
+  <button class="mbtn" id="b-ecmwf"    disabled>ECMWF</button>
+  <button class="mbtn" id="b-cmc"      disabled>CMC</button>
+  <button class="mbtn" id="b-gfs"      disabled>GFS</button>
+  <button class="mbtn" id="b-arpege"   disabled>ARPEGE</button>
+  <button class="mbtn" id="b-arome"    disabled>AROME</button>
+  <button class="mbtn" id="b-gefs"     disabled>GEFS</button>
+  <div class="sep"></div>
+  <button class="dbtn on" id="d-0">SLIDER</button>
+  <button class="dbtn" id="d-1">D1</button>
+  <button class="dbtn" id="d-2">D2</button>
+  <button class="dbtn" id="d-3">D3</button>
+  <div class="sep"></div>
+  <button id="blitz-btn" title="Toggle Blitzortung lightning">⚡ LTNG</button>
+  <div id="hdr-r">
+    <div class="dot" id="dot"></div>
+    <span id="stat">Connecting…</span>
+  </div>
+</div>
+
+<div id="mwrap">
+  <div id="map"></div>
+  <div id="ldr">
+    <div class="ring"></div>
+    <div class="lpct" id="lpct">0%</div>
+    <div class="lmsg" id="lmsg">Loading forecast data…</div>
+    <div class="lerr" id="lerr" style="display:none"></div>
+  </div>
+  <div id="leg">
+    <div class="lhd" id="leg-title">Thunderstorm Outlook</div>
+    <div id="leg-rows"></div>
+  </div>
+  <div id="info">
+    <div class="ihead">
+      <div>
+        <div class="irisk" id="ir">—</div>
+        <div class="isub"  id="id2"></div>
+        <div class="icrd"  id="icrd"></div>
+      </div>
+      <button class="icls" onclick="hideInfo()">✕</button>
+    </div>
+    <div class="sec">MU Parcel</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">MU CAPE</div><div class="pv" id="p-MU_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">MU CIN</div><div class="pv" id="p-MU_CIN">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">MU CAPE <-10°C</div><div class="pv" id="p-MU_CAPE_M10">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">MU CAPE 0-2km</div><div class="pv" id="p-MU_02km_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">MU CAPE 0-3km</div><div class="pv" id="p-MU_03km_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">MU HGL CAPE</div><div class="pv" id="p-MU_HGL_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">MU LCL</div><div class="pv" id="p-MU_LCL_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">MU LFC</div><div class="pv" id="p-MU_LFC_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">MU EL</div><div class="pv" id="p-MU_EL_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">MU LI</div><div class="pv" id="p-MU_LI">—<span class="pu"> K</span></div></div>
+      <div class="pc"><div class="plb">MU WMAX</div><div class="pv" id="p-MU_WMAX">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">MU EL Temp</div><div class="pv" id="p-MU_EL_TEMP">—<span class="pu"> °C</span></div></div>
+      <div class="pc"><div class="plb">MU LCL Temp</div><div class="pv" id="p-MU_LCL_TEMP">—<span class="pu"> °C</span></div></div>
+      <div class="pc"><div class="plb">MU MixR</div><div class="pv" id="p-MU_MIXR">—<span class="pu"> g/kg</span></div></div>
+      <div class="pc"><div class="plb">MU WMAXSHEAR</div><div class="pv" id="p-MU_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">MU Eff WMAXSHEAR</div><div class="pv" id="p-MU_EFF_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+    </div>
+    <div class="sec">SB Parcel</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">SB CAPE</div><div class="pv" id="p-SB_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">SB CIN</div><div class="pv" id="p-SB_CIN">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">SB CAPE <-10°C</div><div class="pv" id="p-SB_CAPE_M10">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">SB CAPE 0-2km</div><div class="pv" id="p-SB_02km_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">SB CAPE 0-3km</div><div class="pv" id="p-SB_03km_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">SB HGL CAPE</div><div class="pv" id="p-SB_HGL_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">SB LCL</div><div class="pv" id="p-SB_LCL_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">SB LFC</div><div class="pv" id="p-SB_LFC_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">SB EL</div><div class="pv" id="p-SB_EL_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">SB LI</div><div class="pv" id="p-SB_LI">—<span class="pu"> K</span></div></div>
+      <div class="pc"><div class="plb">SB WMAX</div><div class="pv" id="p-SB_WMAX">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SB EL Temp</div><div class="pv" id="p-SB_EL_TEMP">—<span class="pu"> °C</span></div></div>
+      <div class="pc"><div class="plb">SB LCL Temp</div><div class="pv" id="p-SB_LCL_TEMP">—<span class="pu"> °C</span></div></div>
+      <div class="pc"><div class="plb">SB MixR</div><div class="pv" id="p-SB_MIXR">—<span class="pu"> g/kg</span></div></div>
+      <div class="pc"><div class="plb">SB WMAXSHEAR</div><div class="pv" id="p-SB_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SB Eff WMAXSHEAR</div><div class="pv" id="p-SB_EFF_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+    </div>
+    <div class="sec">ML Parcel</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">ML CAPE</div><div class="pv" id="p-ML_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">ML CIN</div><div class="pv" id="p-ML_CIN">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">ML CAPE <-10°C</div><div class="pv" id="p-ML_CAPE_M10">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">ML CAPE 0-2km</div><div class="pv" id="p-ML_02km_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">ML CAPE 0-3km</div><div class="pv" id="p-ML_03km_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">ML HGL CAPE</div><div class="pv" id="p-ML_HGL_CAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">ML LCL</div><div class="pv" id="p-ML_LCL_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">ML LFC</div><div class="pv" id="p-ML_LFC_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">ML EL</div><div class="pv" id="p-ML_EL_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">ML LI</div><div class="pv" id="p-ML_LI">—<span class="pu"> K</span></div></div>
+      <div class="pc"><div class="plb">ML WMAX</div><div class="pv" id="p-ML_WMAX">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">ML EL Temp</div><div class="pv" id="p-ML_EL_TEMP">—<span class="pu"> °C</span></div></div>
+      <div class="pc"><div class="plb">ML LCL Temp</div><div class="pv" id="p-ML_LCL_TEMP">—<span class="pu"> °C</span></div></div>
+      <div class="pc"><div class="plb">ML MixR</div><div class="pv" id="p-ML_MIXR">—<span class="pu"> g/kg</span></div></div>
+      <div class="pc"><div class="plb">ML WMAXSHEAR</div><div class="pv" id="p-ML_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">ML Eff WMAXSHEAR</div><div class="pv" id="p-ML_EFF_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+    </div>
+    <div class="sec">Temperature & Moisture</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">LR 0-500m</div><div class="pv" id="p-LR_0500m">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 0-1km</div><div class="pv" id="p-LR_01km">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 0-2km</div><div class="pv" id="p-LR_02km">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 0-3km</div><div class="pv" id="p-LR_03km">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 0-4km</div><div class="pv" id="p-LR_04km">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 0-6km</div><div class="pv" id="p-LR_06km">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 1-6km</div><div class="pv" id="p-LR_16km">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 2-6km</div><div class="pv" id="p-LR_26km">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 2-4km</div><div class="pv" id="p-LR_24km">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 3-6km</div><div class="pv" id="p-LR_36km">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 2-6km MAX</div><div class="pv" id="p-LR_26km_MAX">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 500-700hPa</div><div class="pv" id="p-LR_500700hPa">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 500-800hPa</div><div class="pv" id="p-LR_500800hPa">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">LR 600-800hPa</div><div class="pv" id="p-LR_600800hPa">—<span class="pu"> K/km</span></div></div>
+      <div class="pc"><div class="plb">Frzg Level</div><div class="pv" id="p-FRZG_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">Frzg WB Level</div><div class="pv" id="p-FRZG_wetbulb_HGT">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">Hgt max θe 0-3km</div><div class="pv" id="p-HGT_max_thetae_03km">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">Hgt min θe 0-4km</div><div class="pv" id="p-HGT_min_thetae_04km">—<span class="pu"> m</span></div></div>
+      <div class="pc"><div class="plb">Δθe (3-5km-sfc)</div><div class="pv" id="p-Delta_thetae">—<span class="pu"> K</span></div></div>
+      <div class="pc"><div class="plb">Δθe 0-4km</div><div class="pv" id="p-Delta_thetae_04km">—<span class="pu"> K</span></div></div>
+      <div class="pc"><div class="plb">θe 0-1km</div><div class="pv" id="p-Thetae_01km">—<span class="pu"> K</span></div></div>
+      <div class="pc"><div class="plb">θe 0-2km</div><div class="pv" id="p-Thetae_02km">—<span class="pu"> K</span></div></div>
+      <div class="pc"><div class="plb">DCAPE</div><div class="pv" id="p-DCAPE">—<span class="pu"> J/kg</span></div></div>
+      <div class="pc"><div class="plb">Cold Pool</div><div class="pv" id="p-Cold_Pool_Strength">—<span class="pu"> K</span></div></div>
+      <div class="pc"><div class="plb">Wind Index</div><div class="pv" id="p-Wind_Index">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">PWAT</div><div class="pv" id="p-PRCP_WATER">—<span class="pu"> mm</span></div></div>
+      <div class="pc"><div class="plb">MFC 0-2km</div><div class="pv" id="p-Moisture_Flux_02km">—<span class="pu"> g/s/m²</span></div></div>
+      <div class="pc"><div class="plb">RH 0-1km</div><div class="pv" id="p-RH_01km">—<span class="pu"> %</span></div></div>
+      <div class="pc"><div class="plb">RH 0-2km</div><div class="pv" id="p-RH_02km">—<span class="pu"> %</span></div></div>
+      <div class="pc"><div class="plb">RH 1-4km</div><div class="pv" id="p-RH_14km">—<span class="pu"> %</span></div></div>
+      <div class="pc"><div class="plb">RH 2-5km</div><div class="pv" id="p-RH_25km">—<span class="pu"> %</span></div></div>
+      <div class="pc"><div class="plb">RH 3-6km</div><div class="pv" id="p-RH_36km">—<span class="pu"> %</span></div></div>
+      <div class="pc"><div class="plb">RH HGL</div><div class="pv" id="p-RH_HGL">—<span class="pu"> %</span></div></div>
+    </div>
+    <div class="sec">Bulk Shear</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">BS 0-500m</div><div class="pv" id="p-BS_0500m">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 0-1km</div><div class="pv" id="p-BS_01km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 0-2km</div><div class="pv" id="p-BS_02km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 0-3km</div><div class="pv" id="p-BS_03km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 0-6km</div><div class="pv" id="p-BS_06km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 0-8km</div><div class="pv" id="p-BS_08km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 3-6km</div><div class="pv" id="p-BS_36km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 2-6km</div><div class="pv" id="p-BS_26km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 1-6km</div><div class="pv" id="p-BS_16km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 1-8km</div><div class="pv" id="p-BS_18km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS Eff MU</div><div class="pv" id="p-BS_EFF_MU">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS Eff SB</div><div class="pv" id="p-BS_EFF_SB">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS Eff ML</div><div class="pv" id="p-BS_EFF_ML">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS sfc→-10°C</div><div class="pv" id="p-BS_SFC_to_M10">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 1km→-10°C</div><div class="pv" id="p-BS_1km_to_M10">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS 2km→-10°C</div><div class="pv" id="p-BS_2km_to_M10">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS MU LFC→-10°C</div><div class="pv" id="p-BS_MU_LFC_to_M10">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS SB LFC→-10°C</div><div class="pv" id="p-BS_SB_LFC_to_M10">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS ML LFC→-10°C</div><div class="pv" id="p-BS_ML_LFC_to_M10">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS MW02 SM</div><div class="pv" id="p-BS_MW02_SM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS MW02 RM</div><div class="pv" id="p-BS_MW02_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS MW02 LM</div><div class="pv" id="p-BS_MW02_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS HGL SM</div><div class="pv" id="p-BS_HGL_SM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS HGL RM</div><div class="pv" id="p-BS_HGL_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">BS HGL LM</div><div class="pv" id="p-BS_HGL_LM">—<span class="pu"> m/s</span></div></div>
+    </div>
+    <div class="sec">Mean Wind</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">MW 0-500m</div><div class="pv" id="p-MW_0500m">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">MW 0-1km</div><div class="pv" id="p-MW_01km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">MW 0-2km</div><div class="pv" id="p-MW_02km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">MW 0-3km</div><div class="pv" id="p-MW_03km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">MW 0-6km</div><div class="pv" id="p-MW_06km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">MW 1-3km</div><div class="pv" id="p-MW_13km">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 500m RM</div><div class="pv" id="p-MW_SR_500m_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 1km RM</div><div class="pv" id="p-MW_SR_01km_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 3km RM</div><div class="pv" id="p-MW_SR_03km_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 500m LM</div><div class="pv" id="p-MW_SR_500m_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 1km LM</div><div class="pv" id="p-MW_SR_01km_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 3km LM</div><div class="pv" id="p-MW_SR_03km_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 500m RM</div><div class="pv" id="p-MW_SR_VM_500m_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 1km RM</div><div class="pv" id="p-MW_SR_VM_01km_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 3km RM</div><div class="pv" id="p-MW_SR_VM_03km_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 500m LM</div><div class="pv" id="p-MW_SR_VM_500m_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 1km LM</div><div class="pv" id="p-MW_SR_VM_01km_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 3km LM</div><div class="pv" id="p-MW_SR_VM_03km_LM">—<span class="pu"> m/s</span></div></div>
+    </div>
+    <div class="sec">Storm-Relative Helicity</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">SRH 100m RM</div><div class="pv" id="p-SRH_100m_RM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 250m RM</div><div class="pv" id="p-SRH_250m_RM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 500m RM</div><div class="pv" id="p-SRH_500m_RM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 1km RM</div><div class="pv" id="p-SRH_1km_RM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 3km RM</div><div class="pv" id="p-SRH_3km_RM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 3-6km RM</div><div class="pv" id="p-SRH_36km_RM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 100m LM</div><div class="pv" id="p-SRH_100m_LM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 250m LM</div><div class="pv" id="p-SRH_250m_LM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 500m LM</div><div class="pv" id="p-SRH_500m_LM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 1km LM</div><div class="pv" id="p-SRH_1km_LM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 3km LM</div><div class="pv" id="p-SRH_3km_LM">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SRH 3-6km LM</div><div class="pv" id="p-SRH_36km_LM">—<span class="pu"> m²/s²</span></div></div>
+    </div>
+    <div class="sec">Streamwise Vorticity</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">SV 500m RM</div><div class="pv" id="p-SV_500m_RM">—<span class="pu"> 1/s</span></div></div>
+      <div class="pc"><div class="plb">SV 1km RM</div><div class="pv" id="p-SV_01km_RM">—<span class="pu"> 1/s</span></div></div>
+      <div class="pc"><div class="plb">SV 3km RM</div><div class="pv" id="p-SV_03km_RM">—<span class="pu"> 1/s</span></div></div>
+      <div class="pc"><div class="plb">SV 500m LM</div><div class="pv" id="p-SV_500m_LM">—<span class="pu"> 1/s</span></div></div>
+      <div class="pc"><div class="plb">SV 1km LM</div><div class="pv" id="p-SV_01km_LM">—<span class="pu"> 1/s</span></div></div>
+      <div class="pc"><div class="plb">SV 3km LM</div><div class="pv" id="p-SV_03km_LM">—<span class="pu"> 1/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 500m RM</div><div class="pv" id="p-MW_SR_500m_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 1km RM</div><div class="pv" id="p-MW_SR_01km_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 3km RM</div><div class="pv" id="p-MW_SR_03km_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 500m LM</div><div class="pv" id="p-MW_SR_500m_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 1km LM</div><div class="pv" id="p-MW_SR_01km_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR MW 3km LM</div><div class="pv" id="p-MW_SR_03km_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 500m RM</div><div class="pv" id="p-MW_SR_VM_500m_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 1km RM</div><div class="pv" id="p-MW_SR_VM_01km_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 3km RM</div><div class="pv" id="p-MW_SR_VM_03km_RM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 500m LM</div><div class="pv" id="p-MW_SR_VM_500m_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 1km LM</div><div class="pv" id="p-MW_SR_VM_01km_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SR VM 3km LM</div><div class="pv" id="p-MW_SR_VM_03km_LM">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">SV Frac 500m RM</div><div class="pv" id="p-SV_FRA_500m_RM">—</div></div>
+      <div class="pc"><div class="plb">SV Frac 1km RM</div><div class="pv" id="p-SV_FRA_01km_RM">—</div></div>
+      <div class="pc"><div class="plb">SV Frac 3km RM</div><div class="pv" id="p-SV_FRA_03km_RM">—</div></div>
+      <div class="pc"><div class="plb">SV Frac 500m LM</div><div class="pv" id="p-SV_FRA_500m_LM">—</div></div>
+      <div class="pc"><div class="plb">SV Frac 1km LM</div><div class="pv" id="p-SV_FRA_01km_LM">—</div></div>
+      <div class="pc"><div class="plb">SV Frac 3km LM</div><div class="pv" id="p-SV_FRA_03km_LM">—</div></div>
+    </div>
+    <div class="sec">Storm Motion</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">Bunkers RM Az</div><div class="pv" id="p-Bunkers_RM_A">—<span class="pu"> °</span></div></div>
+      <div class="pc"><div class="plb">Bunkers RM Spd</div><div class="pv" id="p-Bunkers_RM_M">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">Bunkers LM Az</div><div class="pv" id="p-Bunkers_LM_A">—<span class="pu"> °</span></div></div>
+      <div class="pc"><div class="plb">Bunkers LM Spd</div><div class="pv" id="p-Bunkers_LM_M">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">Bunkers MW Az</div><div class="pv" id="p-Bunkers_MW_A">—<span class="pu"> °</span></div></div>
+      <div class="pc"><div class="plb">Bunkers MW Spd</div><div class="pv" id="p-Bunkers_MW_M">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">Corfidi DW Az</div><div class="pv" id="p-Corfidi_downwind_A">—<span class="pu"> °</span></div></div>
+      <div class="pc"><div class="plb">Corfidi DW Spd</div><div class="pv" id="p-Corfidi_downwind_M">—<span class="pu"> m/s</span></div></div>
+      <div class="pc"><div class="plb">Corfidi UW Az</div><div class="pv" id="p-Corfidi_upwind_A">—<span class="pu"> °</span></div></div>
+      <div class="pc"><div class="plb">Corfidi UW Spd</div><div class="pv" id="p-Corfidi_upwind_M">—<span class="pu"> m/s</span></div></div>
+    </div>
+    <div class="sec">Composite Indices</div>
+    <div class="pgrid">
+      <div class="pc"><div class="plb">K-Index</div><div class="pv" id="p-K_Index">—</div></div>
+      <div class="pc"><div class="plb">Showalter</div><div class="pv" id="p-Showalter_Index">—<span class="pu"> K</span></div></div>
+      <div class="pc"><div class="plb">Total Totals</div><div class="pv" id="p-TotalTotals_Index">—</div></div>
+      <div class="pc"><div class="plb">SWEAT</div><div class="pv" id="p-SWEAT_Index">—</div></div>
+      <div class="pc"><div class="plb">STP fix</div><div class="pv" id="p-STP_fix">—</div></div>
+      <div class="pc"><div class="plb">STP new</div><div class="pv" id="p-STP_new">—</div></div>
+      <div class="pc"><div class="plb">STP fix LM</div><div class="pv" id="p-STP_fix_LM">—</div></div>
+      <div class="pc"><div class="plb">STP new LM</div><div class="pv" id="p-STP_new_LM">—</div></div>
+      <div class="pc"><div class="plb">SCP fix</div><div class="pv" id="p-SCP_fix">—</div></div>
+      <div class="pc"><div class="plb">SCP new</div><div class="pv" id="p-SCP_new">—</div></div>
+      <div class="pc"><div class="plb">SCP fix LM</div><div class="pv" id="p-SCP_fix_LM">—</div></div>
+      <div class="pc"><div class="plb">SCP new LM</div><div class="pv" id="p-SCP_new_LM">—</div></div>
+      <div class="pc"><div class="plb">SHIP</div><div class="pv" id="p-SHIP">—</div></div>
+      <div class="pc"><div class="plb">HSI</div><div class="pv" id="p-HSI">—<span class="pu"> cm</span></div></div>
+      <div class="pc"><div class="plb">DCP</div><div class="pv" id="p-DCP">—</div></div>
+      <div class="pc"><div class="plb">MU WMAXSHEAR</div><div class="pv" id="p-MU_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SB WMAXSHEAR</div><div class="pv" id="p-SB_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">ML WMAXSHEAR</div><div class="pv" id="p-ML_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">MU Eff WMAXSHEAR</div><div class="pv" id="p-MU_EFF_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">SB Eff WMAXSHEAR</div><div class="pv" id="p-SB_EFF_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">ML Eff WMAXSHEAR</div><div class="pv" id="p-ML_EFF_WMAXSHEAR">—<span class="pu"> m²/s²</span></div></div>
+      <div class="pc"><div class="plb">EHI 500m</div><div class="pv" id="p-EHI_500m">—</div></div>
+      <div class="pc"><div class="plb">EHI 1km</div><div class="pv" id="p-EHI_01km">—</div></div>
+      <div class="pc"><div class="plb">EHI 3km</div><div class="pv" id="p-EHI_03km">—</div></div>
+      <div class="pc"><div class="plb">EHI 500m LM</div><div class="pv" id="p-EHI_500m_LM">—</div></div>
+      <div class="pc"><div class="plb">EHI 1km LM</div><div class="pv" id="p-EHI_01km_LM">—</div></div>
+      <div class="pc"><div class="plb">EHI 3km LM</div><div class="pv" id="p-EHI_03km_LM">—</div></div>
+      <div class="pc"><div class="plb">SHERBS3</div><div class="pv" id="p-SHERBS3">—</div></div>
+      <div class="pc"><div class="plb">SHERBE</div><div class="pv" id="p-SHERBE">—</div></div>
+      <div class="pc"><div class="plb">SHERBS3 v2</div><div class="pv" id="p-SHERBS3_v2">—</div></div>
+      <div class="pc"><div class="plb">SHERBE v2</div><div class="pv" id="p-SHERBE_v2">—</div></div>
+      <div class="pc"><div class="plb">DEI</div><div class="pv" id="p-DEI">—</div></div>
+      <div class="pc"><div class="plb">DEI eff</div><div class="pv" id="p-DEI_eff">—</div></div>
+      <div class="pc"><div class="plb">TIP</div><div class="pv" id="p-TIP">—</div></div>
+      <div class="pc"><div class="plb">BRN</div><div class="pv" id="p-BRN">—</div></div>
+    </div>
+    <div class="mbars">
+      <div class="mrow2"><span class="mn">ICON</span>  <div class="mbar"><div class="mfill" id="mb-i"></div></div><span class="mlv" id="ml-i">—</span></div>
+      <div class="mrow2"><span class="mn">ECMWF</span> <div class="mbar"><div class="mfill" id="mb-e"></div></div><span class="mlv" id="ml-e">—</span></div>
+      <div class="mrow2"><span class="mn">GFS</span>        <div class="mbar"><div class="mfill" id="mb-gfs"></div></div><span class="mlv" id="ml-gfs">—</span></div>
+      <div class="mrow2"><span class="mn">CMC</span>     <div class="mbar"><div class="mfill" id="mb-cmc"></div></div><span class="mlv" id="ml-cmc">—</span></div>
+      <div class="mrow2"><span class="mn">ARPEGE</span>  <div class="mbar"><div class="mfill" id="mb-arp"></div></div><span class="mlv" id="ml-arp">—</span></div>
+      <div class="mrow2"><span class="mn">AROME</span>   <div class="mbar"><div class="mfill" id="mb-arome"></div></div><span class="mlv" id="ml-arome">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div id="ctrl">
+  <div id="ctop">
+    <div>
+      <div id="tme">Waiting for data…</div>
+      <div id="tsub">—</div>
+    </div>
+    <div id="cnote" id="cnote">DWD ICON-EU + ECMWF IFS<br>Open data · 72h forecast</div>
+  </div>
+  <div id="crow">
+    <button class="cbtn" id="prev">◀</button>
+    <button class="cbtn" id="pbtn">▶</button>
+    <button class="cbtn" id="nxt">▶</button>
+    <div id="trk">
+      <div id="fill"></div>
+      <input type="range" id="slider" min="0" max="24" value="0" step="1">
+    </div>
+    <div class="hlbl">H+<span id="hplus">0</span></div>
+  </div>
+  <div id="ticks"><span>+0h</span><span>+12h</span><span>+24h</span><span>+36h</span><span>+48h</span><span>+60h</span><span>+72h</span></div>
+</div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════
+   HAZARD DEFINITIONS
+   Each hazard has its own level labels and legend rows.
+   ═══════════════════════════════════════════════════════════ */
+// SPC Convective Outlook risk levels — AR-CHaMo probability system
+// Server outputs SPC level (0-6 float). Thresholds match exactly.
+// Colors per official SPC specification.
+const HAZARDS={
+  tstm:{
+    title:'Convective Outlook',
+    levels:[
+      {name:'TSTM',hex:'#C1E9C1',outline:'#646464',r:193,g:233,b:193,a:.55,
+       desc:'P(storm) ≥ 10% — general thunderstorm threat'},
+      {name:'MRGL',hex:'#80C580',outline:'#3C783C',r:128,g:197,b:128,a:.65,
+       desc:'P(severe) ≥ 5% — isolated severe possible'},
+      {name:'SLGT',hex:'#F7F780',outline:'#FF9600',r:247,g:247,b:128,a:.70,
+       desc:'P(severe) ≥ 15% — scattered severe likely'},
+      {name:'ENH', hex:'#E6C280',outline:'#FF7F00',r:230,g:194,b:128,a:.75,
+       desc:'P(severe) ≥ 30% — numerous severe storms expected'},
+      {name:'MDT', hex:'#E68080',outline:'#CD0000',r:230,g:128,b:128,a:.82,
+       desc:'P(severe) ≥ 45% — widespread severe, some significant'},
+      {name:'HIGH',hex:'#FF80FF',outline:'#FF00FF',r:255,g:128,b:255,a:.88,
+       desc:'P(severe) ≥ 60% — particularly dangerous situation'},
+    ],
+    // Thresholds match AR-CHaMo SPC level output (0=none, 1=TSTM … 6=HIGH)
+    thresh:[0, 1, 2, 3, 4, 5, 6],
+  },
+};
+// Alias hail/wind/tornado to tstm so any legacy code still works
+HAZARDS.hail    = HAZARDS.tstm;
+HAZARDS.wind    = HAZARDS.tstm;
+HAZARDS.tornado = HAZARDS.tstm;
+
+/* ═══════════════════════════════════════════════════════════
+   RISK ENGINES  —  calibrated from WFO Louisville tip sheet
+   ═══════════════════════════════════════════════════════════
+
+   Key thresholds from the guide:
+   0-6km shear >40kt (~20m/s) = supercells
+   0-6km shear 20-35kt (~10-18m/s) = organised multicells
+   0-6km shear <10-20kt (<10m/s) = disorganised
+   BRN 10-50 = supercells possible; >40 = multicells
+   700-500mb LR >7.0 C/km = supercell hail environment
+   0-1km shear >20kt (10m/s) + 0-3km SRH >150 = tornado likely
+   Boundary layer RH >65% + LCL <1000m = tornadogenesis
+   CAPE >2500 with marginal shear (30-40kt) = supercells still
+   ═══════════════════════════════════════════════════════════ */
+
+function pLightning(cape, cin, kx, t850, t500, r850, lpi){
+  const lrKm=(t850-t500)/3.5;
+  let pL=0;
+
+  // CAPE: 100-500 J/kg is the TSTM range per the table
+  // Keep full scale for severe outlooks but ensure 100-500 is meaningful
+  if     (cape>=3000)pL+=5.0; else if(cape>=2000)pL+=4.0;
+  else if(cape>=1200)pL+=3.2; else if(cape>= 800)pL+=2.6;
+  else if(cape>= 500)pL+=2.0; else if(cape>= 300)pL+=1.5;
+  else if(cape>= 150)pL+=1.1; else if(cape>= 100)pL+=0.8;
+  else if(cape>=  60)pL+=0.5;
+  else               pL+=0.1;
+
+  // K-Index: table shows 17-20 for TSTM.
+  // Previous thresholds started at 20 — too high. Lowered to 15.
+  if     (kx>=40)pL+=1.2; else if(kx>=35)pL+=0.9; else if(kx>=30)pL+=0.6;
+  else if(kx>=25)pL+=0.35; else if(kx>=20)pL+=0.20;
+  else if(kx>=17)pL+=0.10; else if(kx>=15)pL+=0.05;
+  else if(kx<= 5)pL-=0.6;  else if(kx<=10)pL-=0.25;
+
+  // Lapse rate 850-500
+  if(lrKm>=8.5)pL+=0.60; else if(lrKm>=7.5)pL+=0.35;
+  else if(lrKm>=6.5)pL+=0.15; else if(lrKm<=5.0)pL-=0.30;
+
+  // T850 warm sector
+  if(t850>=20)pL+=0.40; else if(t850>=14)pL+=0.22;
+  else if(t850>= 8)pL+=0.10; else if(t850>= 4)pL+=0.04;
+  else if(t850<= 0)pL-=0.30;
+
+  // T500 cold pool aloft
+  if(t500<=-30)pL+=0.50; else if(t500<=-24)pL+=0.30;
+  else if(t500<=-18)pL+=0.10;
+
+  // RH850: proxy for surface dewpoint (table: 10-15°C dew point for TSTM)
+  // RH 70-75% at 850 hPa roughly corresponds to Td 10-15°C in warm sector
+  if     (r850>=85)pL+=0.40; else if(r850>=75)pL+=0.25;
+  else if(r850>=65)pL+=0.12; else if(r850>=55)pL+=0.04;
+  else if(r850<=35)pL-=0.35;
+
+  // CIN: table says 25-75 J/kg (some cap present) = valid for TSTM.
+  // In our sign convention that's -25 to -75. Moderate cap is actually
+  // positive (focuses convective initiation), extreme cap kills it.
+  if     (cin<-250)pL-=2.2; else if(cin<-180)pL-=1.1;
+  else if(cin<-100)pL-=0.40;
+  else if(cin< -75)pL+=0.15; // table upper end: some cap = focused convection
+  else if(cin< -25)pL+=0.25; // table sweet spot: 25-75 J/kg cap
+  else if(cin< -10)pL+=0.05;
+  else             pL-=0.20; // no cap: scattered/disorganised
+
+  // LI: table says 0 to -2 for TSTM
+  // Current code doesn't use LI in pLightning — add it
+  const li=+(p_li||0);
+  if     (li<=-4)pL+=0.30; else if(li<=-2)pL+=0.20;
+  else if(li<=-1)pL+=0.10; else if(li<= 0)pL+=0.05;
+  else if(li>= 3)pL-=0.30; else if(li>= 1)pL-=0.10;
+
+  // LPI
+  if(lpi>0.5)pL+=0.40; if(lpi>2.0)pL+=0.25;
+
+  return pL;
+}
+
+/* ── THUNDERSTORM ──────────────────────────────────────────
+   TSTM gate calibrated to the parameter table:
+     CAPE 100-500 J/kg, KI 17-20, LI 0 to -2,
+     PWAT 15-25mm, shear 10-20kt (5-10 m/s), CIN 25-75 J/kg
+   These are the LOWER BOUND values — the gate is set so a
+   typical convective day in Europe triggers TSTM reliably.
+   pL threshold lowered to 0.80 for TSTM (was 1.0).
+   Severe escalation (MRGL+) still requires pL ≥ 1.2.
+   ─────────────────────────────────────────────────────────── */
+function scoreTstm(p){
+  const cape=+(p.cape||0), cin=+(p.cin||0), kx=+(p.kx||0);
+  const t850=+(p.t850||0), t500=+(p.t500||0), r850=+(p.r850||0);
+  const sh6=+(p.sh6||0),   lpi=+(p.lpi||0);
+  if(cape<50||cin<-300)return 0;
+
+  // Pass li into pLightning via a module-level variable trick isn't clean —
+  // just inline the li contribution here
+  p_li=+(p.li||0);
+  const pL=pLightning(cape,cin,kx,t850,t500,r850,lpi);
+  p_li=0;
+
+  // TSTM gate: lower threshold captures the 100-500 J/kg CAPE range
+  if(pL<0.80)return 0;
+
+  // Stage 2 severity only activates with more confidence in lightning
+  if(pL<1.20) return pL*0.35; // pure TSTM score, no severe contribution
+
+  let pS=0;
+  if(cape>=500){
+    const bCDS=Math.sqrt(cape)*sh6/100;
+    if(bCDS>=12)pS+=3.0; else if(bCDS>=9)pS+=2.2;
+    else if(bCDS>=6)pS+=1.5; else if(bCDS>=3.5)pS+=0.8;
+    else if(bCDS>=1.5)pS+=0.3;
+
+    // WFO: >40kt (20m/s) = supercells, >25kt (12m/s) = organised multicells
+    if     (sh6>=20)pS+=2.0; else if(sh6>=18)pS+=1.6;
+    else if(sh6>=12)pS+=1.0; else if(sh6>= 7)pS+=0.4;
+    else if(sh6>= 5)pS+=0.1;
+
+    // WFO: CAPE >2500 compensates for marginal shear
+    if(cape>=2500&&sh6>=12&&sh6<20)pS+=0.5;
+  }
+
+  let capeMod=0;
+  if(cape>=3000)capeMod=0.6;
+  else if(cape>=2000)capeMod=0.3;
+  else if(cape<800&&pS>0)capeMod=-0.4;
+
+  return pL*0.35+(pS+capeMod)*0.40;
+}
+
+/* ── HAIL ──────────────────────────────────────────────────
+   WFO guide: 700-500mb LR >7.0 C/km = supercell hail
+   Hail growth zone: -10 to -30°C layer (need large CAPE there)
+   sh6 >40-50kt (20-25m/s) for supercell hail
+   Freezing level / wet-bulb zero <10500ft for melting
+   ─────────────────────────────────────────────────────────── */
+function scoreHail(p){
+  const cape=+(p.cape||0), cin=+(p.cin||0);
+  const t850=+(p.t850||0), t500=+(p.t500||0), sh6=+(p.sh6||0);
+  const kx=+(p.kx||0), r850=+(p.r850||0), lpi=+(p.lpi||0);
+  if(cape<100||cin<-300)return 0;
+  p_li=+(p.li||0);
+  const pL=pLightning(cape,cin,kx,t850,t500,r850,lpi);
+  p_li=0;
+  if(pL<0.8)return 0;
+
+  const lrKm=(t850-t500)/3.5;
+  let pH=0;
+
+  // CAPE: larger = more hail energy
+  if     (cape>=3000)pH+=4.0; else if(cape>=2000)pH+=3.0;
+  else if(cape>=1500)pH+=2.2; else if(cape>=1000)pH+=1.5;
+  else if(cape>= 500)pH+=0.8; else if(cape>= 200)pH+=0.3;
+
+  // 700-500mb lapse rate: WFO says >7.0 C/km for supercell hail
+  if     (lrKm>=8.0)pH+=1.6;   // near dry-adiabatic: explosive hail growth
+  else if(lrKm>=7.0)pH+=1.0;   // WFO: supercell hail threshold
+  else if(lrKm>=6.5)pH+=0.4;
+  else if(lrKm<=5.5)pH-=0.8;   // stable lapse rate: hail melts
+
+  // 0-6km shear: WFO >40-50kt (20-25m/s) for supercell hail
+  if(cape>=500){
+    if     (sh6>=22)pH+=2.2;   // >45kt: classic supercell hail
+    else if(sh6>=20)pH+=1.6;   // >40kt: WFO supercell threshold
+    else if(sh6>=15)pH+=1.0;   // organised multicell hail
+    else if(sh6>= 8)pH+=0.4;
+  }
+
+  // T500 cold pool: colder mid-levels = better hail growth zone
+  if(t500<=-32)pH+=0.6; else if(t500<=-26)pH+=0.3; else if(t500<=-20)pH+=0.1;
+
+  // CIN penalty
+  if(cin<-200)pH-=1.5; else if(cin<-120)pH-=0.6;
+
+  return pL*0.15 + pH*0.35;
+}
+
+/* ── SEVERE WIND ───────────────────────────────────────────
+   WFO guide:
+   Bow echoes/derechoes: 0-3km shear >30kt (15m/s), 0-6km >40kt (20m/s)
+   CAPE avg ~4500 for warm-season bow echoes
+   Wet microbursts: large CAPE, steep 0-3km LR, large BL moisture
+   0-2.5km shear 35-50kt (18-25m/s) for bow echoes
+   ─────────────────────────────────────────────────────────── */
+function scoreWind(p){
+  const cape=+(p.cape||0), cin=+(p.cin||0);
+  const t850=+(p.t850||0), t500=+(p.t500||0), sh6=+(p.sh6||0);
+  const kx=+(p.kx||0), r850=+(p.r850||0), lpi=+(p.lpi||0);
+  if(cape<80||cin<-300)return 0;
+  p_li=+(p.li||0);
+  const pL=pLightning(cape,cin,kx,t850,t500,r850,lpi);
+  p_li=0;
+  if(pL<0.7)return 0;
+
+  let pW=0;
+
+  // CAPE: derecho avg ~4500 J/kg (WFO guide)
+  if     (cape>=4000)pW+=4.0; else if(cape>=2500)pW+=3.0;
+  else if(cape>=1500)pW+=2.2; else if(cape>=1000)pW+=1.5;
+  else if(cape>= 600)pW+=1.0; else if(cape>= 300)pW+=0.5;
+
+  // 0-6km shear: WFO bow echoes >40kt (20m/s), derechoes >40kt
+  if(cape>=400){
+    if     (sh6>=20)pW+=3.5;   // derechoes: WFO >40kt
+    else if(sh6>=18)pW+=2.8;   // bow echoes warm season
+    else if(sh6>=15)pW+=2.0;   // 0-2.5km 35kt threshold
+    else if(sh6>=12)pW+=1.0;
+    else if(sh6>= 7)pW+=0.3;
+  }
+
+  // Lapse rate: steep = microbursts + MCS maintenance
+  const lrKm=(t850-t500)/3.5;
+  if(lrKm>=8.0)pW+=0.5; else if(lrKm>=7.0)pW+=0.25;
+
+  if(cin<-200)pW-=1.2; else if(cin<-100)pW-=0.5;
+
+  return pL*0.12 + pW*0.35;
+}
+
+/* ── TORNADO ───────────────────────────────────────────────
+   WFO guide:
+   0-1km shear >20kt (10m/s) required
+   0-3km SRH >150 m²/s² = rotation likely; >300-400 = supercells
+   Boundary layer RH >65% = warm RFD, tornadogenesis favoured
+   LCL <1000m = tornadogenesis favoured
+   We proxy LLS as sh6 × (r850/100)^0.8 (backs out when moist)
+   0-1km SRH proxy: high r850 + curved hodograph (backed winds)
+   ─────────────────────────────────────────────────────────── */
+function scoreTornado(p){
+  const cape=+(p.cape||0), cin=+(p.cin||0);
+  const t850=+(p.t850||0), t500=+(p.t500||0), sh6=+(p.sh6||0);
+  const kx=+(p.kx||0), r850=+(p.r850||0), lpi=+(p.lpi||0);
+  if(cape<200||cin<-250)return 0;
+  p_li=+(p.li||0);
+  const pL=pLightning(cape,cin,kx,t850,t500,r850,lpi);
+  p_li=0;
+  if(pL<1.2)return 0;
+
+  let pT=0;
+
+  // CAPE: WFO says CAPE >2500 with marginal shear can still make supercells
+  if     (cape>=3000)pT+=3.5; else if(cape>=2500)pT+=3.0;
+  else if(cape>=2000)pT+=2.5; else if(cape>=1500)pT+=2.0;
+  else if(cape>=1000)pT+=1.4; else if(cape>= 600)pT+=0.8;
+  else if(cape>= 200)pT+=0.3;
+
+  // LLS proxy using shear × moisture (RH>65% = backed BL winds per WFO)
+  // Mimics 0-1km shear threshold: WFO >20kt (10m/s) required
+  const blMoisture = r850>=85 ? 1.25 : r850>=75 ? 1.10 : r850>=65 ? 1.0 : 0.75;
+  const llsProxy = sh6 * blMoisture;
+
+  // 0-6km shear gate: WFO >40kt (20m/s) strongly favours persistent rotation
+  // <35kt = rotation brief even with SRH (from tip sheet)
+  if(cape>=500){
+    if     (sh6>=20)pT+=3.0;   // >40kt: supercell, rotation can persist
+    else if(sh6>=18)pT+=2.2;   // 35-40kt: marginal persistence
+    else if(sh6>=14)pT+=1.3;   // some rotation, brief
+    else if(sh6>=10)pT+=0.5;
+  }
+
+  // LLS proxy (0-1km SRH analogue per WFO guide)
+  // >150 m²/s² = rotation; >300-400 = supercell likely
+  if     (llsProxy>=20)pT+=2.0;   // strong SRH, tornadogenesis likely
+  else if(llsProxy>=16)pT+=1.4;
+  else if(llsProxy>=12)pT+=0.8;
+  else if(llsProxy>= 8)pT+=0.3;
+
+  // WFO: warm moist BL (RH>65%) = warm RFD = tornadogenesis favoured
+  if(r850>=85)pT+=0.5; else if(r850>=75)pT+=0.3;
+  else if(r850>=65)pT+=0.1; else if(r850<=50)pT-=0.8;
+
+  // T850 warm sector: unstable warm sector required per WFO
+  if(t850>=18)pT+=0.5; else if(t850>=12)pT+=0.25;
+  else if(t850<=5)pT-=1.0;  // cold sector: storm crosses boundary
+
+  if(cin<-180)pT-=1.0; else if(cin<-100)pT-=0.4;
+
+  return pL*0.15 + pT*0.30;
+}
+
+const SCORE_FN={tstm:scoreTstm, hail:scoreHail, wind:scoreWind, tornado:scoreTornado};
+
+function scoreForHazard(hazard, p){
+  // If the server attached ML probabilities, use them directly.
+  // ML probs are calibrated P(event) in [0,1] — map to the same score
+  // scale as the hand-coded engine by multiplying by a scale factor.
+  // Hand-coded engine max score ≈ 4-5, so P=1.0 → score=4.5
+  const mlKey = 'ml_' + hazard;
+  if(p && p[mlKey] !== undefined){
+    return p[mlKey] * 4.5;
+  }
+  return (SCORE_FN[hazard]||scoreTstm)(p);
+}
+function lvlForHazard(hazard, s){
+  const th=HAZARDS[hazard].thresh;
+  for(let i=th.length-1;i>=1;i--) if(s>=th[i]) return i;
+  return 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════════════ */
+const SMOOTH_SIGMA=3.5; // 3.5 cells × 0.0625° = ~27km physical radius
+let map, riskLayer=null;
+let fcast=null;
+let smoothed=null;
+let NX=0, NY=0;
+let gridLats=[], gridLons=[];
+let LAT0=34, LAT1=72, LON0=-26, LON1=48, STEP=2;
+let ch=0, playing=false, ticker=null, lastPt=0, lastClickLat=0, lastClickLon=0;
+let activeModel='blend';
+const activeHazard='tstm'; // always tstm — hazard sub-selector removed
+let p_li=0;
+let dayMode=0; // 0=slider, 1=D1, 2=D2, 3=D3
+
+/* ═══════════════════════════════════════════════════════════
+   LEGEND
+   ═══════════════════════════════════════════════════════════ */
+function updateLegend(){
+  const h=HAZARDS[activeHazard];
+  document.getElementById('leg-title').textContent=h.title;
+  document.getElementById('leg-rows').innerHTML=h.levels.map((l,i)=>`
+    <div class="lrow">
+      <div class="lsw" style="background:${l.hex};opacity:${l.a+0.1}"></div>
+      <span class="lnm">${l.name}</span>
+      <span class="lds">${l.desc}</span>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GAUSSIAN SMOOTH + BILINEAR INTERP
+   ═══════════════════════════════════════════════════════════ */
+function makeKernel(sig){
+  const r=Math.ceil(3*sig),k=new Float32Array(2*r+1);
+  let s=0;for(let i=0;i<k.length;i++){const x=i-r;k[i]=Math.exp(-x*x/(2*sig*sig));s+=k[i];}
+  for(let i=0;i<k.length;i++)k[i]/=s;return k;
+}
+const KRN=makeKernel(SMOOTH_SIGMA), KRAD=Math.floor(KRN.length/2);
+function smooth2D(raw,ny,nx){
+  const tmp=new Float32Array(ny*nx),out=new Float32Array(ny*nx);
+  for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){
+    let s=0,w=0;for(let k=0;k<KRN.length;k++){const xx=x+k-KRAD;if(xx>=0&&xx<nx){s+=raw[y*nx+xx]*KRN[k];w+=KRN[k];}}
+    tmp[y*nx+x]=w>0?s/w:0;
+  }
+  for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){
+    let s=0,w=0;for(let k=0;k<KRN.length;k++){const yy=y+k-KRAD;if(yy>=0&&yy<ny){s+=tmp[yy*nx+x]*KRN[k];w+=KRN[k];}}
+    out[y*nx+x]=w>0?s/w:0;
+  }
+  return out;
+}
+function interp(lat,lon){
+  const gi=(lat-LAT0)/STEP-0.5, gj=(lon-LON0)/STEP-0.5;
+  const iy0=Math.floor(gi),iy1=iy0+1,ix0=Math.floor(gj),ix1=ix0+1;
+  if(iy0<0||iy1>=NY||ix0<0||ix1>=NX)return 0;
+  const fy=gi-iy0,fx=gj-ix0;
+  return smoothed[iy0*NX+ix0]*(1-fy)*(1-fx)+smoothed[iy0*NX+ix1]*(1-fy)*fx
+        +smoothed[iy1*NX+ix0]*fy*(1-fx)+smoothed[iy1*NX+ix1]*fy*fx;
+}
+
+function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;}
+
+/* ═══════════════════════════════════════════════════════════
+   2× BILINEAR UPSAMPLE — doubles grid resolution for rendering.
+   Runs on the smoothed Float32Array before marching squares,
+   making contours appear at 0.5° effective resolution.
+   ═══════════════════════════════════════════════════════════ */
+function upsample2x(src,ny,nx){
+  const ny2=ny*2-1, nx2=nx*2-1;
+  const dst=new Float32Array(ny2*nx2);
+  for(let y=0;y<ny;y++) for(let x=0;x<nx;x++) dst[(y*2)*nx2+(x*2)]=src[y*nx+x];
+  // Horizontal lerp
+  for(let y=0;y<ny;y++) for(let x=0;x<nx-1;x++){
+    dst[(y*2)*nx2+(x*2+1)]=(src[y*nx+x]+src[y*nx+x+1])*0.5;
+  }
+  // Vertical lerp
+  for(let y=0;y<ny-1;y++) for(let x=0;x<nx2;x++){
+    dst[(y*2+1)*nx2+x]=(dst[(y*2)*nx2+x]+dst[(y*2+2)*nx2+x])*0.5;
+  }
+  return {data:dst,ny:ny2,nx:nx2};
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MARCHING SQUARES — iso-contour extraction
+   ═══════════════════════════════════════════════════════════ */
+function marchSquares(field,ny,nx,thr){
+  // Linear interpolation along an edge
+  function lerp(a,b){return (thr-a)/((b-a)||1e-9);}
+
+  // Quantise a fractional coord to a short string key for hash lookup
+  function key(y,x){return (Math.round(y*1000)/1000)+','+( Math.round(x*1000)/1000);}
+
+  // Build adjacency map: endpoint_key → [segment_index, endpoint_index]
+  const segs=[];
+  for(let iy=0;iy<ny-1;iy++){
+    for(let ix=0;ix<nx-1;ix++){
+      const vtl=field[iy*nx+ix], vtr=field[iy*nx+ix+1];
+      const vbr=field[(iy+1)*nx+ix+1], vbl=field[(iy+1)*nx+ix];
+      const c=((vtl>=thr)?8:0)|((vtr>=thr)?4:0)|((vbr>=thr)?2:0)|((vbl>=thr)?1:0);
+      if(c===0||c===15)continue;
+      const T={y:iy,         x:ix+lerp(vtl,vtr)};
+      const R={y:iy+lerp(vtr,vbr), x:ix+1};
+      const B={y:iy+1,       x:ix+lerp(vbl,vbr)};
+      const L={y:iy+lerp(vtl,vbl), x:ix};
+      switch(c){
+        case  1:case 14:segs.push([L,B]);break;
+        case  2:case 13:segs.push([B,R]);break;
+        case  3:case 12:segs.push([L,R]);break;
+        case  4:case 11:segs.push([R,T]);break;
+        case  6:case  9:segs.push([T,B]);break;
+        case  7:case  8:segs.push([L,T]);break;
+        // Saddle cases — emit both sub-segments
+        case  5:segs.push([T,L],[R,B]);break;
+        case 10:segs.push([T,R],[B,L]);break;
+      }
+    }
+  }
+  if(!segs.length)return[];
+
+  // Build hash map: key(pt) → list of [segIdx, endIdx(0=start,1=end)]
+  const map=new Map();
+  function add(k,si,ei){
+    if(!map.has(k))map.set(k,[]);
+    map.get(k).push([si,ei]);
+  }
+  for(let i=0;i<segs.length;i++){
+    add(key(segs[i][0].y,segs[i][0].x),i,0);
+    add(key(segs[i][1].y,segs[i][1].x),i,1);
+  }
+
+  const used=new Uint8Array(segs.length);
+  const rings=[];
+
+  for(let start=0;start<segs.length;start++){
+    if(used[start])continue;
+    used[start]=1;
+    const ring=[segs[start][0],segs[start][1]];
+    // Walk forward: find a segment whose start or end matches current tail
+    for(let steps=0;steps<segs.length;steps++){
+      const tail=ring[ring.length-1];
+      const k=key(tail.y,tail.x);
+      const candidates=map.get(k)||[];
+      let found=false;
+      for(const [si,ei] of candidates){
+        if(used[si])continue;
+        used[si]=1;
+        // Append the OTHER endpoint
+        ring.push(segs[si][ei===0?1:0]);
+        found=true;
+        break;
+      }
+      if(!found)break;
+    }
+    if(ring.length>=3)rings.push(ring);
+  }
+  // Discard rings that are too small to represent real convective areas.
+  // Area computed via shoelace formula in grid-cell units.
+  // At 0.125°, 1 grid cell ≈ ~14km × ~14km. MIN_AREA_CELLS² prevents
+  // single-pixel noise from appearing as forecast areas.
+  const MIN_AREA = 16.0; // 16 cells² at 0.0625° ≈ same ~800 km² minimum as before
+  function ringArea(ring){
+    let a=0;
+    for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+      a+=(ring[j].x+ring[i].x)*(ring[j].y-ring[i].y);
+    }
+    return Math.abs(a)*0.5;
+  }
+
+  return rings.filter(r=>r.length>=4 && ringArea(r)>=MIN_AREA);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CANVAS LAYER — placed directly in map container, NOT in
+   any Leaflet pane. Panes get CSS-transformed during pan/zoom
+   which breaks latLngToContainerPoint. The map container div
+   is never transformed, so our canvas stays perfectly aligned.
+   ═══════════════════════════════════════════════════════════ */
+const RiskLayer=L.Layer.extend({
+  onAdd(m){
+    this._map=m;
+    // Place canvas in the map container, NOT in a pane
+    const container=m.getContainer();
+    this._c=document.createElement('canvas');
+    Object.assign(this._c.style,{
+      position:'absolute',left:'0',top:'0',
+      pointerEvents:'none',zIndex:'400'
+    });
+    container.appendChild(this._c);
+    // Listen to all map movement events
+    m.on('move zoom viewreset resize',this._schedule,this);
+    this._schedule();
+  },
+  onRemove(m){
+    if(this._raf)cancelAnimationFrame(this._raf);
+    this._c.remove();
+    m.off('move zoom viewreset resize',this._schedule,this);
+  },
+  // Use requestAnimationFrame so we draw at most once per frame
+  _schedule(){
+    if(this._raf)cancelAnimationFrame(this._raf);
+    this._raf=requestAnimationFrame(()=>{this._raf=null;this._go();});
+  },
+  _go(){
+    if(!this._map)return;
+    const sz=this._map.getSize();
+    this._c.width=sz.x; this._c.height=sz.y;
+    if(!smoothed){this._c.getContext('2d').clearRect(0,0,sz.x,sz.y);return;}
+    this._draw(sz.x,sz.y);
+  },
+  _draw(w,h){
+    const ctx=this._c.getContext('2d');
+    ctx.clearRect(0,0,w,h);
+    if(!smoothed||NY===0||NX===0)return;
+    const hz=HAZARDS[activeHazard];
+    const m=this._map;
+
+    // At 0.5° grid resolution, upsampling is unnecessary overhead — use directly
+    const upData=smoothed, UNY=NY, UNX=NX, USTEP=STEP;
+
+    // toScreen: grid index (row,col) → canvas pixel
+    // latLngToContainerPoint is always in container-relative coords
+    const toScreen=(gy,gx)=>m.latLngToContainerPoint([LAT0+gy*USTEP, LON0+gx*USTEP]);
+
+    // Draw fills lowest→highest (each level paints over previous)
+    for(let li=0;li<hz.levels.length;li++){
+      const lv=hz.levels[li];
+      const thr=hz.thresh[li+1];
+      if(thr===undefined)continue;
+      const rings=marchSquares(upData,UNY,UNX,thr);
+      if(!rings.length)continue;
+      ctx.fillStyle=hexToRgba(lv.hex,lv.a);
+      for(const ring of rings){
+        ctx.beginPath();
+        ring.forEach((pt,i)=>{const s=toScreen(pt.y,pt.x);i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);});
+        ctx.closePath();ctx.fill();
+      }
+    }
+    // Outlines on top of all fills
+    for(let li=0;li<hz.levels.length;li++){
+      const lv=hz.levels[li];
+      const thr=hz.thresh[li+1];
+      if(thr===undefined)continue;
+      const rings=marchSquares(upData,UNY,UNX,thr);
+      if(!rings.length)continue;
+      ctx.strokeStyle=lv.outline;
+      ctx.lineWidth=1.5;ctx.lineJoin='round';ctx.lineCap='round';
+      for(const ring of rings){
+        ctx.beginPath();
+        ring.forEach((pt,i)=>{const s=toScreen(pt.y,pt.x);i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);});
+        ctx.closePath();ctx.stroke();
+      }
+    }
+  },
+  redraw(){if(this._map)this._schedule();}
+});
+
+/* ═══════════════════════════════════════════════════════════
+   DATA ACCESS — server sends pre-computed scores as base64 float16
+   scores format: fcast.scores[model][hazard][stepIdx] = base64string
+   ═══════════════════════════════════════════════════════════ */
+
+// Decode a base64 float16 string to Float32Array
+function decodeF16(b64){
+  const bin=atob(b64);
+  const buf=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+  const u16=new Uint16Array(buf.buffer);
+  const f32=new Float32Array(u16.length);
+  // float16 → float32 conversion
+  for(let i=0;i<u16.length;i++){
+    const h=u16[i];
+    const exp=(h>>10)&0x1f, mant=h&0x3ff;
+    if(exp===0)       f32[i]=(h>>15?-1:1)*5.96e-8*mant;
+    else if(exp===31) f32[i]=mant?NaN:(h>>15?-Infinity:Infinity);
+    else              f32[i]=(h>>15?-1:1)*Math.pow(2,exp-15)*(1+mant/1024);
+  }
+  return f32;
+}
+
+// Cache decoded arrays so we don't decode repeatedly
+const _scoreCache={};
+function getScoreArray(model, hazard, stepIdx){
+  const key=model+'|'+hazard+'|'+stepIdx;
+  if(_scoreCache[key]) return _scoreCache[key];
+  const b64=fcast?.scores?.[model]?.[hazard]?.[stepIdx];
+  if(!b64) return null;
+  const arr=decodeF16(b64);
+  _scoreCache[key]=arr;
+  return arr;
+}
+
+// Get score for a single grid point
+function getScore(model, hazard, stepIdx, ptIdx){
+  const arr=getScoreArray(model, hazard, stepIdx);
+  return arr?arr[ptIdx]??0:0;
+}
+
+// Build blend score array — average across all available models
+function getBlendScores(hazard, stepIdx){
+  const ALL_MODELS=['icon','ecmwf','cmc','gfs','arpege','arome','icon_d2'];
+  const models=ALL_MODELS.filter(m=>fcast?.scores?.[m]);
+  if(!models.length) return null;
+  const arrs=models.map(m=>getScoreArray(m,hazard,stepIdx)).filter(Boolean);
+  if(!arrs.length) return null;
+  const n=arrs[0].length;
+  const out=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    let sum=0; for(const a of arrs) sum+=a[i];
+    out[i]=sum/arrs.length;
+  }
+  return out;
+}
+
+function getModelPts(t, model){ return null; } // legacy stub — unused
+function getStepData(t, model){ return null; } // legacy stub — unused
+function ptAt(d, i){ return null; } // legacy stub — unused
+
+/* ═══════════════════════════════════════════════════════════
+   COMPUTE SMOOTHED FIELD — reads server scores directly
+   ═══════════════════════════════════════════════════════════ */
+function _scoreStep(raw, t){
+  let arr=null;
+  if(activeModel==='blend'){
+    arr=getBlendScores(activeHazard, t);
+  } else {
+    arr=getScoreArray(activeModel, activeHazard, t);
+    // Fall back to icon if model unavailable
+    if(!arr) arr=getScoreArray('icon', activeHazard, t);
+    if(!arr) arr=getScoreArray('ecmwf', activeHazard, t);
+    if(!arr) arr=getScoreArray('cmc', activeHazard, t);
+    if(!arr) arr=getScoreArray('gfs', activeHazard, t);
+    if(!arr) arr=getScoreArray( activeHazard, t);
+    if(!arr) arr=getScoreArray('arpege', activeHazard, t);
+    if(!arr) arr=getScoreArray('arome', activeHazard, t);
+    if(!arr) arr=getScoreArray( activeHazard, t);
+  }
+  if(!arr) return;
+  const n=arr.length;
+  for(let i=0;i<n;i++){
+    let sc=arr[i]||0;
+    if(!isFinite(sc)||sc<0) sc=0;
+    const lat=gridLats[i], lon=gridLons[i];
+    const iy=Math.round((lat-LAT0)/STEP), ix=Math.round((lon-LON0)/STEP);
+    if(iy<0||iy>=NY||ix<0||ix>=NX) continue;
+    // AR-CHaMo: SPC levels are baked into server scores — no client boost needed
+    raw[iy*NX+ix]=Math.max(raw[iy*NX+ix], sc);
+  }
+}
+
+function computeSmoothed(t){
+  const raw=new Float32Array(NY*NX);
+  _scoreStep(raw,t);
+  smoothed=smooth2D(raw,NY,NX);
+}
+
+// Compute step indices for Day N using 06z-06z UTC windows.
+// Day 1 = next 06z to 06z+24h, Day 2 = 06z+24h to 06z+48h, etc.
+function getDaySteps(dayNum){
+  const times = fcast?.times || [];
+  if(!times.length) return {s0:0, s1:7};
+
+  // Find the first 06z timestamp at or after now (or use run time as anchor)
+  const runDt = fcast?.run ? new Date(fcast.run[0].slice(0,4)+'-'+fcast.run[0].slice(4,6)+'-'+
+      fcast.run[0].slice(6,8)+'T'+fcast.run[1].padStart(2,'0')+':00:00Z') : new Date();
+
+  // Find first 06z that is in the future relative to run
+  let anchor = new Date(runDt);
+  anchor.setUTCHours(6,0,0,0);
+  if(anchor <= runDt) anchor.setUTCDate(anchor.getUTCDate()+1);
+
+  // Day window: [anchor+(dayNum-1)*24h, anchor+dayNum*24h)
+  const winStart = new Date(anchor.getTime() + (dayNum-1)*86400000);
+  const winEnd   = new Date(anchor.getTime() +  dayNum   *86400000);
+
+  let s0=-1, s1=-1;
+  for(let i=0;i<times.length;i++){
+    const t=new Date(times[i]+'Z');
+    if(t>=winStart && s0===-1) s0=i;
+    if(t< winEnd)              s1=i;
+  }
+  if(s0===-1) s0=0;
+  if(s1===-1) s1=Math.min(s0+7, times.length-1);
+  return {s0, s1, winStart, winEnd};
+}
+
+function computeSmoothedDay(dayNum){
+  const raw=new Float32Array(NY*NX);
+  const {s0,s1}=getDaySteps(dayNum);
+  for(let t=s0;t<=s1;t++) _scoreStep(raw,t);
+  smoothed=smooth2D(raw,NY,NX);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER
+   ═══════════════════════════════════════════════════════════ */
+function renderHour(t){
+  ch=Math.max(0,Math.min(t,(fcast?.times?.length||1)-1));
+  if(dayMode>0){
+    computeSmoothedDay(dayMode);
+  } else {
+    computeSmoothed(ch);
+  }
+  if(riskLayer)riskLayer.redraw();
+  const sl=document.getElementById('slider');
+  document.getElementById('fill').style.width=(ch/+sl.max*100).toFixed(1)+'%';
+  sl.value=ch;
+  document.getElementById('hplus').textContent=ch*3;
+  const times=fcast?.times||[];
+  if(dayMode>0){
+    const {s0,s1,winStart,winEnd}=getDaySteps(dayMode);
+    const fmt=dt=>dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'});
+    const fmtT=dt=>dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'});
+    document.getElementById('tme').textContent='Day '+dayMode+'  '+fmt(winStart)+' 06z – '+fmt(winEnd)+' 06z';
+    document.getElementById('tsub').textContent='Maximum risk · 06z–06z UTC · '+['D1','D2','D3'][dayMode-1]+' outlook';
+  } else if(times[ch]){
+    const dt=new Date(times[ch]+'Z');
+    const dy=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'});
+    const hr=dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'});
+    document.getElementById('tme').textContent=dy+'  '+hr+' UTC';
+    const run=fcast?.run||['—','—'];
+    document.getElementById('tsub').textContent='H+'+(ch*3)+' · Run: '+run[0]+' '+run[1]+'z';
+  }
+  if(document.getElementById('info').style.display!=='none')
+    showInfo(lastPt,lastClickLat,lastClickLon); // async, fire-and-forget is fine
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INFO PANEL
+   ═══════════════════════════════════════════════════════════ */
+async function showInfo(i, clickLat, clickLon){
+  lastPt=i;
+  lastClickLat=clickLat!==undefined?clickLat:(gridLats[i]||0);
+  lastClickLon=clickLon!==undefined?clickLon:(gridLons[i]||0);
+
+  const eD=null, iD=getStepData(ch,'icon'), gD=null;
+  let p;
+  if(activeModel==='icon')       p=ptAt(iD,i)||ptAt(eD,i)||ptAt(gD,i);
+  else                           p=ptAt(eD,i)||ptAt(iD,i)||ptAt(gD,i);
+  if(!p)return;
+
+  // Static mode: use locally available scores (no /api/point endpoint)
+  let detail=p;
+
+  const sc=smoothed?interp(lastClickLat,lastClickLon):0;
+  const hz=HAZARDS[activeHazard];
+  let lv=0;
+  for(let i2=hz.thresh.length-1;i2>=1;i2--){if(sc>=hz.thresh[i2]){lv=i2;break;}}
+  const lData=lv>0?hz.levels[lv-1]:null;
+
+  const q=id=>document.getElementById(id);
+  q('ir').textContent=lData?lData.name:'—';
+  q('ir').style.color=lData?lData.hex:'var(--mu)';
+  q('id2').textContent=lData?lData.desc:'';
+  const latS=(lastClickLat).toFixed(1);
+  const lonS=lastClickLon>=0?lastClickLon.toFixed(1)+'E':Math.abs(lastClickLon).toFixed(1)+'W';
+  q('icrd').textContent=latS+'N  '+lonS;
+
+  // All 201 thundeR parameters
+  [
+    ["MU_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["MU_CIN",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["MU_CAPE_M10",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["MU_02km_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["MU_03km_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["MU_HGL_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["MU_LCL_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["MU_LFC_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["MU_EL_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["MU_LI",1,"<span class=\"pu\"> K</span>"],
+    ["MU_WMAX",1,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MU_EL_TEMP",1,"<span class=\"pu\"> \u00b0C</span>"],
+    ["MU_LCL_TEMP",1,"<span class=\"pu\"> \u00b0C</span>"],
+    ["MU_MIXR",2,"<span class=\"pu\"> g&#47;kg</span>"],
+    ["SB_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["SB_CIN",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["SB_CAPE_M10",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["SB_02km_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["SB_03km_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["SB_HGL_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["SB_LCL_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["SB_LFC_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["SB_EL_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["SB_LI",1,"<span class=\"pu\"> K</span>"],
+    ["SB_WMAX",1,"<span class=\"pu\"> m&#47;s</span>"],
+    ["SB_EL_TEMP",1,"<span class=\"pu\"> \u00b0C</span>"],
+    ["SB_LCL_TEMP",1,"<span class=\"pu\"> \u00b0C</span>"],
+    ["SB_MIXR",2,"<span class=\"pu\"> g&#47;kg</span>"],
+    ["ML_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["ML_CIN",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["ML_CAPE_M10",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["ML_02km_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["ML_03km_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["ML_HGL_CAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["ML_LCL_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["ML_LFC_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["ML_EL_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["ML_LI",1,"<span class=\"pu\"> K</span>"],
+    ["ML_WMAX",1,"<span class=\"pu\"> m&#47;s</span>"],
+    ["ML_EL_TEMP",1,"<span class=\"pu\"> \u00b0C</span>"],
+    ["ML_LCL_TEMP",1,"<span class=\"pu\"> \u00b0C</span>"],
+    ["ML_MIXR",2,"<span class=\"pu\"> g&#47;kg</span>"],
+    ["LR_0500m",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_01km",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_02km",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_03km",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_04km",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_06km",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_16km",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_26km",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_24km",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_36km",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_26km_MAX",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_500700hPa",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_500800hPa",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["LR_600800hPa",2,"<span class=\"pu\"> K&#47;km</span>"],
+    ["FRZG_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["FRZG_wetbulb_HGT",0,"<span class=\"pu\"> m</span>"],
+    ["HGT_max_thetae_03km",0,"<span class=\"pu\"> m</span>"],
+    ["HGT_min_thetae_04km",0,"<span class=\"pu\"> m</span>"],
+    ["Delta_thetae",1,"<span class=\"pu\"> K</span>"],
+    ["Delta_thetae_04km",1,"<span class=\"pu\"> K</span>"],
+    ["Thetae_01km",1,"<span class=\"pu\"> K</span>"],
+    ["Thetae_02km",1,"<span class=\"pu\"> K</span>"],
+    ["DCAPE",0,"<span class=\"pu\"> J&#47;kg</span>"],
+    ["Cold_Pool_Strength",1,"<span class=\"pu\"> K</span>"],
+    ["Wind_Index",1,"<span class=\"pu\"> m&#47;s</span>"],
+    ["PRCP_WATER",1,"<span class=\"pu\"> mm</span>"],
+    ["Moisture_Flux_02km",2,"<span class=\"pu\"> g&#47;s&#47;m\u00b2</span>"],
+    ["RH_01km",1,"<span class=\"pu\"> %</span>"],
+    ["RH_02km",1,"<span class=\"pu\"> %</span>"],
+    ["RH_14km",1,"<span class=\"pu\"> %</span>"],
+    ["RH_25km",1,"<span class=\"pu\"> %</span>"],
+    ["RH_36km",1,"<span class=\"pu\"> %</span>"],
+    ["RH_HGL",1,"<span class=\"pu\"> %</span>"],
+    ["BS_0500m",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_01km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_02km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_03km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_06km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_08km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_36km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_26km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_16km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_18km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_EFF_MU",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_EFF_SB",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_EFF_ML",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_SFC_to_M10",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_1km_to_M10",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_2km_to_M10",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_MU_LFC_to_M10",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_SB_LFC_to_M10",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_ML_LFC_to_M10",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_MW02_SM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_MW02_RM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_MW02_LM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_HGL_SM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_HGL_RM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["BS_HGL_LM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_0500m",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_01km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_02km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_03km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_06km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_13km",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["SRH_100m_RM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_250m_RM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_500m_RM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_1km_RM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_3km_RM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_36km_RM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_100m_LM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_250m_LM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_500m_LM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_1km_LM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_3km_LM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SRH_36km_LM",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SV_500m_RM",4,"<span class=\"pu\"> 1&#47;s</span>"],
+    ["SV_01km_RM",4,"<span class=\"pu\"> 1&#47;s</span>"],
+    ["SV_03km_RM",4,"<span class=\"pu\"> 1&#47;s</span>"],
+    ["SV_500m_LM",4,"<span class=\"pu\"> 1&#47;s</span>"],
+    ["SV_01km_LM",4,"<span class=\"pu\"> 1&#47;s</span>"],
+    ["SV_03km_LM",4,"<span class=\"pu\"> 1&#47;s</span>"],
+    ["MW_SR_500m_RM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_01km_RM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_03km_RM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_500m_LM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_01km_LM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_03km_LM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_VM_500m_RM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_VM_01km_RM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_VM_03km_RM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_VM_500m_LM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_VM_01km_LM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["MW_SR_VM_03km_LM",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["SV_FRA_500m_RM",3,""],
+    ["SV_FRA_01km_RM",3,""],
+    ["SV_FRA_03km_RM",3,""],
+    ["SV_FRA_500m_LM",3,""],
+    ["SV_FRA_01km_LM",3,""],
+    ["SV_FRA_03km_LM",3,""],
+    ["Bunkers_RM_A",1,"<span class=\"pu\"> \u00b0</span>"],
+    ["Bunkers_RM_M",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["Bunkers_LM_A",1,"<span class=\"pu\"> \u00b0</span>"],
+    ["Bunkers_LM_M",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["Bunkers_MW_A",1,"<span class=\"pu\"> \u00b0</span>"],
+    ["Bunkers_MW_M",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["Corfidi_downwind_A",1,"<span class=\"pu\"> \u00b0</span>"],
+    ["Corfidi_downwind_M",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["Corfidi_upwind_A",1,"<span class=\"pu\"> \u00b0</span>"],
+    ["Corfidi_upwind_M",2,"<span class=\"pu\"> m&#47;s</span>"],
+    ["K_Index",1,""],
+    ["Showalter_Index",1,"<span class=\"pu\"> K</span>"],
+    ["TotalTotals_Index",1,""],
+    ["SWEAT_Index",0,""],
+    ["STP_fix",3,""],
+    ["STP_new",3,""],
+    ["STP_fix_LM",3,""],
+    ["STP_new_LM",3,""],
+    ["SCP_fix",3,""],
+    ["SCP_new",3,""],
+    ["SCP_fix_LM",3,""],
+    ["SCP_new_LM",3,""],
+    ["SHIP",3,""],
+    ["HSI",2,"<span class=\"pu\"> cm</span>"],
+    ["DCP",3,""],
+    ["MU_WMAXSHEAR",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SB_WMAXSHEAR",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["ML_WMAXSHEAR",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["MU_EFF_WMAXSHEAR",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["SB_EFF_WMAXSHEAR",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["ML_EFF_WMAXSHEAR",0,"<span class=\"pu\"> m\u00b2&#47;s\u00b2</span>"],
+    ["EHI_500m",3,""],
+    ["EHI_01km",3,""],
+    ["EHI_03km",3,""],
+    ["EHI_500m_LM",3,""],
+    ["EHI_01km_LM",3,""],
+    ["EHI_03km_LM",3,""],
+    ["SHERBS3",3,""],
+    ["SHERBE",3,""],
+    ["SHERBS3_v2",3,""],
+    ["SHERBE_v2",3,""],
+    ["DEI",3,""],
+    ["DEI_eff",3,""],
+    ["TIP",3,""],
+    ["BRN",1,""]
+  ].forEach(([k,dec,u])=>{
+    const el=document.getElementById("p-"+k);
+    if(el){const x=detail[k];el.innerHTML=(x==null||x===undefined?"—":(+x).toFixed(dec))+u;}
+  });
+
+
+  const lv_names=['—',...hz.levels.map(l=>l.name)];
+  const lv_cols=hz.levels.map(l=>l.hex);
+  ['icon','ecmwf','cmc','gfs','arpege','arome','icon_d2'].forEach((m,mi)=>{
+    const bid=['mb-i','mb-e','mb-cmc','mb-gfs','mb-harm','mb-arp','mb-arome','mb-d2'][mi], lid=['ml-i','ml-e','ml-cmc','ml-gfs','ml-harm','ml-arp','ml-arome','ml-d2'][mi];
+    const sc=getScore(m, activeHazard, ch, i);
+    const arr=getScoreArray(m, activeHazard, ch);
+    if(!arr){document.getElementById(bid).style.width='0%';document.getElementById(lid).textContent='—';return;}
+    let ll=0; for(let j=hz.thresh.length-1;j>=1;j--){if(sc>=hz.thresh[j]){ll=j;break;}}
+    document.getElementById(bid).style.width=(ll/(hz.levels.length)*100).toFixed(0)+'%';
+    document.getElementById(bid).style.background=ll>0?lv_cols[ll-1]:'var(--b1)';
+    document.getElementById(lid).textContent=lv_names[ll];
+  });
+
+  document.getElementById('info').style.display='block';
+}
+function hideInfo(){document.getElementById('info').style.display='none';}
+
+/* ═══════════════════════════════════════════════════════════
+   MAP INIT
+   ═══════════════════════════════════════════════════════════ */
+function initMap(){
+  map=L.map('map',{center:[51,14],zoom:4,minZoom:3,maxZoom:9});
+  map.createPane('lbl');map.getPane('lbl').style.zIndex=650;map.getPane('lbl').style.pointerEvents='none';
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+    {attribution:'©OSM ©CARTO',subdomains:'abcd',maxZoom:20}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+    {attribution:'',subdomains:'abcd',maxZoom:20,pane:'lbl'}).addTo(map);
+  riskLayer=new RiskLayer();riskLayer.addTo(map);
+  map.on('click',async e=>{
+    if(!fcast)return;
+    const {lat,lng}=e.latlng;
+    let best=-1,bd=1e9;
+    gridLats.forEach((la,ii)=>{
+      const d=Math.hypot(la-lat,(gridLons[ii]||0)-lng);
+      if(d<bd){bd=d;best=ii;}
+    });
+    if(best>=0)await showInfo(best,lat,lng);
+    else hideInfo();
+  });
+  map.on('click',()=>{/* keep above handler */});
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROCESS FORECAST DATA
+   ═══════════════════════════════════════════════════════════ */
+function processFcast(data){
+  fcast=data;
+  // Clear decoded score cache
+  for(const k of Object.keys(_scoreCache)) delete _scoreCache[k];
+  const lats=data.lats, lons=data.lons;
+  gridLats=lats; gridLons=lons;
+  const uniqLat=[...new Set(lats.map(v=>Math.round(v*10)/10))].sort((a,b)=>a-b);
+  const uniqLon=[...new Set(lons.map(v=>Math.round(v*10)/10))].sort((a,b)=>a-b);
+  NY=uniqLat.length; NX=uniqLon.length;
+  LAT0=uniqLat[0]; LON0=uniqLon[0];
+  STEP=uniqLat.length>1?(uniqLat[1]-uniqLat[0]):2;
+  LAT1=uniqLat[NY-1]+STEP; LON1=uniqLon[NX-1]+STEP;
+  document.getElementById('slider').max=data.times.length-1;
+
+  // Enable model buttons based on what scores are available
+  // Detect which models are present and enable/disable buttons + chips accordingly
+  const MODEL_META = {
+    icon:     {chip:'chip-icon',     btn:'b-icon',     label:'ICON-EU'},
+    ecmwf:    {chip:'chip-ecmwf',    btn:'b-ecmwf',    label:'ECMWF'},
+    cmc:      {chip:'chip-cmc',      btn:'b-cmc',       label:'CMC'},
+    gfs:      {chip:'chip-gfs',      btn:'b-gfs',       label:'GFS'},
+    arpege:   {chip:'chip-arpege',   btn:'b-arpege',    label:'ARPEGE'},
+    arome:    {chip:'chip-arome',    btn:'b-arome',     label:'AROME'},
+  };
+  const avail = {};
+  for(const [m,meta] of Object.entries(MODEL_META)){
+    const has = !!(data.scores?.[m]);
+    avail[m] = has;
+    const chip = document.getElementById(meta.chip);
+    const btn  = document.getElementById(meta.btn);
+    if(chip) chip.style.display = has ? '' : 'none';
+    if(btn)  btn.disabled = !has;
+    if(!has && activeModel===m){ activeModel='blend'; setModelUI('blend'); }
+  }
+  // Update source note
+  const note=document.getElementById('cnote');
+  if(note){
+    const ms=Object.entries(avail).filter(([,v])=>v).map(([m])=>MODEL_META[m].label);
+    note.innerHTML=ms.join(' + ')+'<br>Open data · '+data.times.length*3+'h forecast';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI HELPERS
+   ═══════════════════════════════════════════════════════════ */
+function setStat(s,msg){
+  const d=document.getElementById('dot');
+  d.className='dot'+(s==='live'?' live':s==='load'?' load':'');
+  document.getElementById('stat').textContent=msg;
+}
+function setLdr(v,pct,msg,err){
+  document.getElementById('ldr').style.display=v?'flex':'none';
+  if(v){
+    document.getElementById('lpct').textContent=pct+'%';
+    document.getElementById('lmsg').textContent=msg;
+    const e=document.getElementById('lerr');
+    if(err){e.style.display='block';e.textContent=err;}
+    else e.style.display='none';
+  }
+}
+function setModelUI(m){
+  ['blend','icon','ecmwf','cmc','gfs','arpege','arome','icon_d2'].forEach(x=>{
+    const b=document.getElementById('b-'+x);
+    if(b) b.classList.toggle('on',x===m);
+  });
+}
+function setHazardUI(h){ /* hazard sub-selector removed — always tstm */ updateLegend(); }
+
+/* ═══════════════════════════════════════════════════════════
+   STATIC FILE LOADING  (GitHub Pages — no local server needed)
+   ═══════════════════════════════════════════════════════════ */
+
+// ── GitHub Releases data URLs ─────────────────────────────────────────────────
+// These point to the rolling "latest" release in your repo.
+// Replace OWNER and REPO with your GitHub username and repo name.
+// Example: const GH_OWNER = 'weatherdev'; const GH_REPO = 'pharos-forecast';
+// Data files are committed into docs/ and served by GitHub Pages.
+// Same origin as the site — no CORS issues, no third-party CDN needed.
+// The path is relative so it works on any username/repo without editing.
+async function fetchReleaseAsset(filename) {
+  // Cache-buster: refreshes every 5 minutes so stale data is never shown
+  const url = `./${filename}?t=${Math.floor(Date.now()/300000)}`;
+  const resp = await fetch(url, {cache: 'no-store'});
+  if (!resp.ok) throw new Error(`Fetch error ${resp.status} for ${filename}`);
+  return resp;
+}
+
+async function loadStaticForecast(){
+  setLdr(true, 10, 'Loading forecast data…');
+  setStat('load', 'Loading…');
+
+  // 1. Load meta.json for run info and last-updated time
+  let meta = null;
+  try {
+    const mr = await fetchReleaseAsset('meta.json');
+    if(mr.ok) meta = await mr.json();
+  } catch(e) {
+    console.warn('meta.json not found:', e);
+  }
+
+  // 2. Load main forecast_data.json
+  try {
+    setLdr(true, 30, 'Downloading forecast grid…');
+    const dr = await fetchReleaseAsset('forecast_data.json');
+    if(!dr.ok) throw new Error('HTTP ' + dr.status + ' — forecast_data.json not found');
+    setLdr(true, 70, 'Parsing forecast data…');
+    const d = await dr.json();
+    if(d.error) throw new Error(d.error);
+
+    processFcast(d);
+    renderHour(0);
+    setLdr(false);
+
+    // Build status string
+    const nm = Object.keys(d.models||{}).length||1;
+    const mlTag = d.has_ml?' · ML':'';
+    let updStr = '';
+    if(meta?.generated_utc){
+      const dt = new Date(meta.generated_utc);
+      updStr = ' · Updated ' + dt.toUTCString().replace(' GMT','Z');
+    }
+    setStat('live',
+      (Object.keys(d.scores||{}).map(m=>m.toUpperCase()).join('+')) +
+      ' · ' + (d.times?.length||0) + ' steps' +
+      ' · ' + nm + ' model'+(nm>1?'s':'') +
+      mlTag + updStr);
+
+  } catch(fe) {
+    console.error('Forecast load error:', fe);
+    setLdr(true, 0, '',
+      'Could not load forecast data.\n\n' + fe.message +
+      '\n\nIf you just set up the repo, the first GitHub Actions run\n' +
+      'may still be in progress. Check the Actions tab on GitHub.');
+    setStat(false, 'No data');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BLITZORTUNG LIGHTNING
+   ═══════════════════════════════════════════════════════════ */
+let blitzStrikes=[], blitzActive=false, blitzWS=null, blitzRetryTimer=null;
+const BLITZ_LIFE=300000;
+
+const BlitzLayer=L.Layer.extend({
+  onAdd(m){
+    this._map=m;
+    const c=m.getContainer();
+    this._c=document.createElement('canvas');
+    Object.assign(this._c.style,{position:'absolute',left:'0',top:'0',pointerEvents:'none',zIndex:'401'});
+    c.appendChild(this._c);
+    m.on('move zoom viewreset resize',this._go,this);
+    this._go();
+    this._tick=setInterval(()=>this._go(),3000);
+  },
+  onRemove(m){clearInterval(this._tick);this._c.remove();m.off('move zoom viewreset resize',this._go,this);},
+  _go(){
+    const sz=this._map.getSize();
+    this._c.width=sz.x;this._c.height=sz.y;
+    const ctx=this._c.getContext('2d');
+    ctx.clearRect(0,0,sz.x,sz.y);
+    const now=Date.now();
+    blitzStrikes=blitzStrikes.filter(s=>now-s.t<BLITZ_LIFE);
+    for(const s of blitzStrikes){
+      const age=(now-s.t)/BLITZ_LIFE;
+      const alpha=Math.max(0,(1-age*1.4)*0.9);
+      if(alpha<=0)continue;
+      const pt=this._map.latLngToContainerPoint([s.lat,s.lon]);
+      ctx.fillStyle=`rgba(255,140,0,${alpha})`;
+      ctx.beginPath();ctx.arc(pt.x,pt.y,Math.max(1.5,3*(1-age)),0,Math.PI*2);ctx.fill();
+    }
+  }
+});
+let blitzLayerObj=null;
+
+function connectBlitz(){
+  if(!blitzActive)return;
+  // Blitzortung public WebSocket — port 7654 is the standard live-map port
+  const hosts=[
+    'ws://ws1.blitzortung.org:7654/',
+    'ws://ws8.blitzortung.org:7654/',
+    'ws://ws7.blitzortung.org:7654/',
+    'ws://ws6.blitzortung.org:7654/',
+    'ws://ws5.blitzortung.org:7654/',
+  ];
+  let idx=0;
+  function tryNext(){
+    if(!blitzActive||idx>=hosts.length)return;
+    try{
+      const ws=new WebSocket(hosts[idx++]);
+      let opened=false;
+      ws.onopen=()=>{
+        opened=true;
+        blitzWS=ws;
+        // Send region subscription
+        ws.send(JSON.stringify({west:LON0,east:LON1,north:LAT1,south:LAT0}));
+      };
+      ws.onmessage=e=>{
+        try{
+          const raw=e.data;
+          // Handle both single JSON and newline-delimited
+          for(const line of raw.split('\n')){
+            if(!line.trim())continue;
+            const d=JSON.parse(line);
+            // lat/lon may be integer (×10^6) or float
+            let la=d.lat??d.latu??d.latitude;
+            let lo=d.lon??d.lonu??d.longitude;
+            if(la==null||lo==null)continue;
+            if(Math.abs(la)>900)la/=1e6;  // convert integer format
+            if(Math.abs(lo)>1800)lo/=1e6;
+            if(la>=LAT0&&la<=LAT1&&lo>=LON0&&lo<=LON1){
+              blitzStrikes.push({lat:la,lon:lo,t:Date.now()});
+            }
+          }
+        }catch{}
+      };
+      ws.onerror=()=>{if(!opened)setTimeout(tryNext,300);};
+      ws.onclose=()=>{
+        blitzWS=null;
+        if(blitzActive)blitzRetryTimer=setTimeout(connectBlitz,20000);
+      };
+    }catch{setTimeout(tryNext,300);}
+  }
+  tryNext();
+}
+
+document.getElementById('blitz-btn').addEventListener('click',()=>{
+  blitzActive=!blitzActive;
+  document.getElementById('blitz-btn').classList.toggle('on',blitzActive);
+  if(blitzActive){
+    blitzLayerObj=new BlitzLayer();blitzLayerObj.addTo(map);
+    connectBlitz();
+  } else {
+    clearTimeout(blitzRetryTimer);
+    if(blitzWS){try{blitzWS.close();}catch{}blitzWS=null;}
+    if(blitzLayerObj){map.removeLayer(blitzLayerObj);blitzLayerObj=null;}
+    blitzStrikes=[];
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   EVENTS
+   ═══════════════════════════════════════════════════════════ */
+document.getElementById('slider').addEventListener('input',e=>{dayMode=0;setDayUI(0);renderHour(+e.target.value);});
+document.getElementById('prev').addEventListener('click',()=>{dayMode=0;setDayUI(0);renderHour(ch-1);});
+document.getElementById('nxt').addEventListener('click',()=>{dayMode=0;setDayUI(0);renderHour(ch+1);});
+document.getElementById('pbtn').addEventListener('click',()=>{
+  playing=!playing;
+  document.getElementById('pbtn').textContent=playing?'⏸':'▶';
+  if(playing)ticker=setInterval(()=>renderHour(ch>=(fcast?.times?.length-1||0)?0:ch+1),380);
+  else clearInterval(ticker);
+});
+// Day mode buttons
+[0,1,2,3].forEach(d=>{
+  document.getElementById('d-'+d).addEventListener('click',()=>{
+    dayMode=d;setDayUI(d);
+    if(d===0)renderHour(ch);
+    else{if(playing){clearInterval(ticker);playing=false;document.getElementById('pbtn').textContent='▶';}renderHour(ch);}
+  });
+});
+function setDayUI(d){
+  [0,1,2,3].forEach(x=>document.getElementById('d-'+x).classList.toggle('on',x===d));
+  const sliderArea=document.getElementById('crow');
+  // Dim slider controls when in day mode
+  document.getElementById('slider').style.opacity=d?'0.35':'1';
+  document.getElementById('prev').disabled=!!d;
+  document.getElementById('nxt').disabled=!!d;
+  document.getElementById('pbtn').disabled=!!d;
+}
+// Model buttons
+['blend','icon','ecmwf','cmc','gfs','arpege','arome','icon_d2'].forEach(m=>{
+  const btn=document.getElementById('b-'+m);
+  if(!btn)return;
+  btn.addEventListener('click',()=>{
+    if(btn.disabled)return;
+    activeModel=m;setModelUI(m);renderHour(ch);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════════════════════ */
+initMap();
+updateLegend();
+// Static mode: load from pre-built forecast_data.json
+loadStaticForecast();
+
+// Auto-refresh every 30 min (picks up new GitHub Actions commits)
+setInterval(()=>{
+  if(!document.hidden) loadStaticForecast();
+}, 30*60*1000);
+</script>
+</body>
+</html>

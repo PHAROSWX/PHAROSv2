@@ -1,0 +1,18 @@
+{
+  "generated_utc": "2026-04-27T08:17:59.180097+00:00",
+  "icon_run": [
+    "20260427",
+    "03"
+  ],
+  "gefs_run": null,
+  "run_id": "2026042703",
+  "n_steps": 25,
+  "n_pts": 45441,
+  "models": [
+    "icon",
+    "ecmwf",
+    "cmc",
+    "gfs",
+    "arpege"
+  ]
+}
