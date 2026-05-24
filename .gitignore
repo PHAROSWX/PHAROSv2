@@ -1,0 +1,16 @@
+# Secret keys
+firebase_key.json
+/tmp/
+
+# Forecast data is committed to docs/ via --amend (single rolling commit)
+# Do not add docs/forecast_data.json here
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# OS
+.DS_Store
+Thumbs.db
