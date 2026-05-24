@@ -1,0 +1,333 @@
+name: Update Forecast
+
+on:
+  # ── Scheduled triggers ────────────────────────────────────────────────────
+  # ICON-EU runs every 3h and is published ~3-4h after the nominal run time.
+  # GEFS runs at 00/06/12/18 UTC and is on S3 ~4-5h after nominal.
+  #
+  # We try at 04:30, 07:30, 10:30, 13:30, 16:30, 19:30, 22:30, 01:30 UTC.
+  # The workflow probes model availability and skips if neither has a new run.
+  schedule:
+    - cron: '30 1  * * *'   # 01:30 UTC — catches ICON 21z, GEFS 00z
+    - cron: '30 4  * * *'   # 04:30 UTC — catches ICON 00z
+    - cron: '30 7  * * *'   # 07:30 UTC — catches ICON 03z + 06z, GEFS 06z
+    - cron: '30 10 * * *'   # 10:30 UTC — catches ICON 06z
+    - cron: '30 13 * * *'   # 13:30 UTC — catches ICON 09z + 12z, GEFS 12z
+    - cron: '30 16 * * *'   # 16:30 UTC — catches ICON 12z
+    - cron: '30 19 * * *'   # 19:30 UTC — catches ICON 15z + 18z, GEFS 18z
+    - cron: '30 22 * * *'   # 22:30 UTC — catches ICON 18z
+
+  # ── Manual trigger ────────────────────────────────────────────────────────
+  workflow_dispatch:
+    inputs:
+      icon_only:
+        description: 'Fetch ICON-EU only (skips GEFS; faster)'
+        required: false
+        default: 'false'
+        type: boolean
+      force:
+        description: 'Force regeneration even if run ID unchanged'
+        required: false
+        default: 'false'
+        type: boolean
+      resolution:
+        description: 'Grid resolution in degrees (default: 0.25)'
+        required: false
+        default: '0.25'
+        type: string
+
+jobs:
+  update-forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180        # 3-hour max (GEFS ensemble is slow)
+    permissions:
+      contents: write           # needed to upload to GitHub Releases
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          fetch-depth: 1
+
+      # ── 2. System dependencies ─────────────────────────────────────────────
+      # NOTE: do NOT install system libeccodes-dev — it conflicts with the
+      # Python eccodes package (which cfgrib uses) by overriding the
+      # ECCODES_DEFINITION_PATH with an incompatible version, causing all
+      # GRIB2 decodes to silently return empty datasets.
+      # We only need bzip2 to decompress DWD ICON-EU .grib2.bz2 files.
+      - name: Install bzip2
+        run: sudo apt-get install -y bzip2
+
+      # ── 3. Python setup ────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          # Install xarray explicitly — it is required by cfgrib.open_datasets
+          # and must be present before cfgrib is first imported.
+          pip install "xarray>=2022.0"
+
+      # ── 4. Quick availability pre-check ───────────────────────────────────
+      # Fast HEAD request to avoid spinning up the full pipeline when no
+      # new model data is available.  Exit code 0 = data available.
+      - name: Check if new model data is available
+        id: avail_check
+        env:
+          ICON_ONLY: ${{ github.event.inputs.icon_only || 'false' }}
+        run: |
+          python - <<'EOF'
+          import sys, os, json, requests
+          from datetime import datetime, timezone, timedelta
+          from pathlib import Path
+
+          icon_only = os.environ.get('ICON_ONLY', 'false').lower() == 'true'
+
+          def probe_icon():
+              now = datetime.now(timezone.utc)
+              for delta in range(0, 13, 3):
+                  dt = now - timedelta(hours=delta)
+                  rh = (dt.hour // 3) * 3
+                  c  = dt.replace(hour=rh, minute=0, second=0, microsecond=0)
+                  ds, rs = c.strftime('%Y%m%d'), '%02d' % c.hour
+                  url = (f'https://opendata.dwd.de/weather/nwp/icon-eu/grib/'
+                         f'{rs}/cape_ml/icon-eu_europe_regular-lat-lon_single-level_'
+                         f'{ds}{rs}_000_CAPE_ML.grib2.bz2')
+                  try:
+                      if requests.head(url, timeout=10).status_code == 200:
+                          print(f'ICON-EU available: {ds}/{rs}z', file=sys.stderr)
+                          return ds + rs
+                  except Exception: pass
+              return None
+
+          def probe_gefs():
+              now = datetime.now(timezone.utc)
+              for delta in range(0, 25, 6):
+                  dt = now - timedelta(hours=delta)
+                  gh = (dt.hour // 6) * 6
+                  c  = dt.replace(hour=gh, minute=0, second=0, microsecond=0)
+                  gd, gr = c.strftime('%Y%m%d'), '%02d' % c.hour
+                  url = (f'https://noaa-gefs-pds.s3.amazonaws.com/gefs.{gd}/{gr}/'
+                         f'atmos/pgrb2ap5/gec00.t{gr}z.pgrb2a.0p50.f000')
+                  try:
+                      if requests.head(url, timeout=10).status_code == 200:
+                          print(f'GEFS available: {gd}/{gr}z', file=sys.stderr)
+                          return gd + gr
+                  except Exception: pass
+              return None
+
+          # Read last processed run
+          meta_file = Path('docs/meta.json')
+          last_run = ''
+          if meta_file.exists():
+              try: last_run = json.loads(meta_file.read_text()).get('run_id', '')
+              except Exception: pass
+
+          icon_id = probe_icon()
+          gefs_id = None if icon_only else probe_gefs()
+
+          new_run_id = icon_id or gefs_id or ''
+          if not new_run_id:
+              print('NO_DATA')
+              sys.exit(0)
+
+          if new_run_id == last_run and os.environ.get('FORCE','false') != 'true':
+              print('ALREADY_DONE:' + new_run_id)
+          else:
+              print('RUN:' + new_run_id)
+          EOF
+          RESULT=$(python - <<'EOF2'
+          import sys, os, json, requests
+          from datetime import datetime, timezone, timedelta
+          from pathlib import Path
+
+          icon_only = os.environ.get('ICON_ONLY','false').lower()=='true'
+
+          def probe_icon():
+              now = datetime.now(timezone.utc)
+              for delta in range(0,13,3):
+                  dt=now-timedelta(hours=delta); rh=(dt.hour//3)*3
+                  c=dt.replace(hour=rh,minute=0,second=0,microsecond=0)
+                  ds,rs=c.strftime('%Y%m%d'),'%02d'%c.hour
+                  url=(f'https://opendata.dwd.de/weather/nwp/icon-eu/grib/{rs}/cape_ml/'
+                       f'icon-eu_europe_regular-lat-lon_single-level_{ds}{rs}_000_CAPE_ML.grib2.bz2')
+                  try:
+                      if requests.head(url,timeout=10).status_code==200: return ds+rs
+                  except: pass
+              return None
+
+          def probe_gefs():
+              now = datetime.now(timezone.utc)
+              for delta in range(0,25,6):
+                  dt=now-timedelta(hours=delta); gh=(dt.hour//6)*6
+                  c=dt.replace(hour=gh,minute=0,second=0,microsecond=0)
+                  gd,gr=c.strftime('%Y%m%d'),'%02d'%c.hour
+                  url=(f'https://noaa-gefs-pds.s3.amazonaws.com/gefs.{gd}/{gr}/'
+                       f'atmos/pgrb2ap5/gec00.t{gr}z.pgrb2a.0p50.f000')
+                  try:
+                      if requests.head(url,timeout=10).status_code==200: return gd+gr
+                  except: pass
+              return None
+
+          meta_file=Path('docs/meta.json')
+          last_run=''
+          if meta_file.exists():
+              try: last_run=json.loads(meta_file.read_text()).get('run_id','')
+              except: pass
+
+          icon_id=probe_icon()
+          gefs_id=None if icon_only else probe_gefs()
+          new_run_id=icon_id or gefs_id or ''
+          if not new_run_id: print('NO_DATA'); sys.exit()
+          if new_run_id==last_run and os.environ.get('FORCE','false')!='true':
+              print('ALREADY_DONE')
+          else:
+              print('SHOULD_RUN')
+          EOF2
+          )
+          echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+          echo "Availability check result: $RESULT"
+
+      # ── 5. Run the static generator ────────────────────────────────────────
+      # ── 4b. Verify cfgrib can decode GRIB2 before running the full pipeline ──
+      - name: Smoke-test cfgrib
+        continue-on-error: true   # diagnostic only — never block the pipeline
+        run: |
+          python - <<'PYEOF'
+          # cfgrib.open_datasets is only exposed when xarray is installed
+          import xarray  # must come before cfgrib import
+          import cfgrib, eccodes
+          print("cfgrib  :", cfgrib.__version__)
+          print("eccodes :", eccodes.__version__)
+          print("xarray  :", xarray.__version__)
+
+          # Build a minimal valid GRIB2 message in memory and decode it.
+          # This proves cfgrib + eccodes definitions are working end-to-end
+          # without needing any sample files on disk.
+          import subprocess, sys, tempfile, os
+          from pathlib import Path
+
+          # Download a tiny real GRIB2 file from NOAA (GEFS step 0, control member)
+          # to verify the full decode pipeline.  Use a very short timeout so a
+          # network hiccup doesn't block the job for long.
+          import urllib.request
+          from datetime import datetime, timezone, timedelta
+
+          now = datetime.now(timezone.utc)
+          # Find a recent GEFS run (last 24 h)
+          url = None
+          for dh in range(0, 25, 6):
+              dt  = now - timedelta(hours=dh)
+              gh  = (dt.hour // 6) * 6
+              c   = dt.replace(hour=gh, minute=0, second=0, microsecond=0)
+              gd  = c.strftime("%Y%m%d")
+              gr  = "%02d" % c.hour
+              candidate = (f"https://noaa-gefs-pds.s3.amazonaws.com/gefs.{gd}/{gr}/"
+                           f"atmos/pgrb2ap5/gec00.t{gr}z.pgrb2a.0p50.f000")
+              try:
+                  req = urllib.request.Request(candidate, method="HEAD")
+                  urllib.request.urlopen(req, timeout=6)
+                  url = candidate
+                  break
+              except Exception:
+                  pass
+
+          if url is None:
+              print("WARNING: no GEFS file available for smoke test — skipping decode check")
+              sys.exit(0)
+
+          print("Smoke-test URL:", url)
+          tmp = Path(tempfile.mktemp(suffix=".grib2"))
+          # Download only first 2 MB (enough for one GRIB2 message)
+          req = urllib.request.Request(url, headers={"Range": "bytes=0-2097151"})
+          with urllib.request.urlopen(req, timeout=30) as r:
+              tmp.write_bytes(r.read())
+          print(f"Downloaded {tmp.stat().st_size/1024:.0f} KB")
+
+          # Try cfgrib.open_datasets first, fall back to xarray engine
+          try:
+              dsets = cfgrib.open_datasets(str(tmp), indexpath=None)
+          except AttributeError:
+              import xarray as xr
+              dsets = xr.open_datasets(str(tmp), engine="cfgrib", indexpath=None)
+          print(f"cfgrib decoded {len(dsets)} dataset(s) from test file")
+          if not dsets:
+              print("ERROR: cfgrib returned 0 datasets — eccodes decode broken!")
+              sys.exit(1)
+          for ds in dsets:
+              print(" vars:", list(ds.data_vars))
+          tmp.unlink(missing_ok=True)
+          print("Smoke test PASSED")
+          PYEOF
+
+      - name: Generate static forecast data
+        if: steps.avail_check.outputs.result == 'SHOULD_RUN'
+        env:
+          GRID_STEP:    ${{ github.event.inputs.resolution || '0.25' }}
+          SKIP_CACHE_CHECK: ${{ github.event.inputs.force == 'true' && '1' || '0' }}
+          ECCODES_DEFINITION_PATH: ""
+          # Optional: set these secrets to enable Arpège (Météo-France) model
+          # Register free at https://portail-api.meteofrance.fr
+          METEOFRANCE_API_KEY: ${{ secrets.METEOFRANCE_API_KEY }}
+          METEOFRANCE_CLIENT_ID: ${{ secrets.METEOFRANCE_CLIENT_ID }}
+        run: |
+          # Use --no-gefs on GitHub Actions:
+          # ICON-EU (~8 min) + ECMWF (~15 min) = ~25 min total, well within limits.
+          # GEFS (775 files, 31 members) takes 25+ min and times out on 2-core runners.
+          ARGS="--no-gefs"
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            ARGS="$ARGS --force"
+          fi
+          echo "Running: python generate_static.py $ARGS"
+          python generate_static.py $ARGS
+
+      # ── 6. Log output file sizes ───────────────────────────────────────────
+      - name: Report output sizes
+        if: steps.avail_check.outputs.result == 'SHOULD_RUN'
+        run: |
+          echo "=== Output files ==="
+          ls -lh docs/forecast_data.json docs/meta.json 2>/dev/null || echo "(no files yet)"
+          echo ""
+          echo "=== Meta ==="
+          cat docs/meta.json 2>/dev/null || echo "(no meta.json)"
+
+      # ── 7. Commit data files into docs/ with amend ───────────────────────────
+      # Forecast JSON served directly from GitHub Pages — same origin = no CORS.
+      # We amend the previous data commit each run so git history stays at
+      # 1 commit for these files — no storage bloat, no third-party CDN.
+      - name: Commit forecast data to docs/
+        if: steps.avail_check.outputs.result == 'SHOULD_RUN'
+        run: |
+          RUN_ID=$(python -c "import json; d=json.load(open('docs/meta.json')); print(d.get('run_id','?'))")
+
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/forecast_data.json docs/meta.json
+
+          if git diff --cached --quiet; then
+            echo "Files unchanged — nothing to commit."
+          else
+            # Always amend so docs/forecast_data.json stays in exactly 1 commit
+            git commit --amend --no-edit --allow-empty ||               git commit -m "data: forecast ${RUN_ID} [skip ci]"
+            git push --force-with-lease
+            echo "Committed forecast for run ${RUN_ID} to docs/"
+          fi
+
+          echo "Served at:"
+          echo "  https://${{ github.repository_owner }}.github.io/$(echo ${{ github.repository }} | cut -d/ -f2)/forecast_data.json"
+
+      # ── 8. Skip notice ────────────────────────────────────────────────────
+      - name: Report skip reason
+        if: steps.avail_check.outputs.result != 'SHOULD_RUN'
+        run: |
+          echo "Skipping pipeline: ${{ steps.avail_check.outputs.result }}"
+          echo "(No new model data available, or run already processed)"
